@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SchoolHub</title>
+    <link rel="stylesheet" href="/css/app_styles.css">
+    <!-- Quick external font fallback to match the app style vibes -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- SweetAlert2 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/js/app.js" defer></script>
+    <style>
+        /* Fallback quick fixes if app_styles.css isn't perfectly carrying over all resets */
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+        
+        /* Collapsible Navigation Dropdowns styling */
+        .nav-details {
+            margin: 3px 0;
+            outline: none;
+        }
+        .nav-summary {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            color: #f0ebe6;
+            border-radius: 6px;
+            cursor: pointer;
+            user-select: none;
+            list-style: none; /* Hide default arrow */
+            transition: background-color 0.2s;
+            outline: none;
+        }
+        .nav-summary::-webkit-details-marker {
+            display: none; /* Hide default Safari arrow */
+        }
+        .nav-summary:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .nav-details[open] .nav-summary {
+            background-color: rgba(255, 255, 255, 0.05);
+            font-weight: 500;
+        }
+        .nav-summary-arrow {
+            margin-left: auto;
+            font-size: 0.8em;
+            transition: transform 0.2s ease;
+            color: var(--text-muted);
+        }
+        .nav-details[open] .nav-summary-arrow {
+            transform: rotate(90deg);
+        }
+        .nav-submenu {
+            list-style: none;
+            padding: 2px 0 2px 25px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .nav-submenu a {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            text-decoration: none;
+            color: #d1c7bd;
+            font-size: 0.9em;
+            border-radius: 6px;
+            transition: color 0.2s, background-color 0.2s;
+        }
+        .nav-submenu a:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.08);
+        }
+        .nav-submenu a.active {
+            color: var(--primary-color);
+            background-color: rgba(255, 255, 255, 0.1);
+            font-weight: 600;
+        }
+    </style>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#2c3e50">
+    {% block extra_head %}{% endblock %}
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js');
+        });
+      }
+    </script>
+</head>
+<body>
+
+{% if is_logged_in %}
+<div class="app-layout" id="appLayout">
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div>
+                <div class="sidebar-title" style="display: flex; align-items: center; gap: 3px; font-weight: 600;">
+                    <img src="/favicon.png" alt="S" style="width: 1.05em; height: 1.05em; border-radius: 4px; vertical-align: middle;">choolHub
+                </div>
+                <span class="sidebar-schule">Verwaltung</span>
+            </div>
+            <button id="nav-toggle" aria-label="Toggle menu">☰</button>
+        </div>
+        
+        <ul class="nav-menu">
+            <li class="nav-label">Main</li>
+            <li class="nav-item">
+                <a href="/dashboard" class="{{ is_current_page('dashboard_unterricht.php') ? 'active' : '' }}">
+                    <span class="nav-icon">🏠</span>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/index.php">
+                    <span class="nav-icon">🔄</span>
+                    <span class="nav-text">Portal-Auswahl</span>
+                </a>
+            </li>
+            
+            {% if not is_admin %}
+            <li class="nav-label">Unterricht</li>
+            <li class="nav-item">
+                <a href="/admin_homework.php" class="{{ is_current_page('admin_homework.php') ? 'active' : '' }}">
+                    <span class="nav-icon">📚</span>
+                    <span class="nav-text">Hausaufgaben (KI)</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/teacher_feedback.php" class="{{ is_current_page('teacher_feedback.php') ? 'active' : '' }}">
+                    <span class="nav-icon">⚡</span>
+                    <span class="nav-text">Schüler-Feedback</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/feedback_trends.php" class="{{ is_current_page('feedback_trends.php') ? 'active' : '' }}">
+                    <span class="nav-icon">📈</span>
+                    <span class="nav-text">Trend-Analyse</span>
+                </a>
+            </li>
+            {% endif %}
+            
+            {% if is_admin %}
+            <div class="nav-separator"></div>
+            
+            <li class="nav-label">Verwaltung</li>
+            <li class="nav-item">
+                <a href="/admin_lehrer.php" class="{{ is_current_page('admin_lehrer.php') ? 'active' : '' }}">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-text">Lehrerverwaltung</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/admin_klassen.php" class="{{ is_current_page('admin_klassen.php') ? 'active' : '' }}">
+                    <span class="nav-icon">🏫</span>
+                    <span class="nav-text">Klassenverwaltung</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/admin_system.php" class="{{ is_current_page('admin_system.php') ? 'active' : '' }}">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Systemverwaltung</span>
+                </a>
+            </li>
+            {% endif %}
+            
+            <div class="nav-separator"></div>
+            
+            <li class="nav-label">Benutzer</li>
+            <li class="nav-item">
+                <div style="padding: 10px 12px; color: var(--text-muted); font-size: 0.9em; display:flex; align-items:center;">
+                    <span class="nav-icon">👤</span>
+                    <span class="nav-text">{{ current_user_name }}</span>
+                </div>
+            </li>
+            <li class="nav-item">
+                <a href="#" id="dark-mode-toggle" onclick="event.preventDefault();">
+                    <span class="nav-icon">🌓</span>
+                    <span class="nav-text">Design wechseln</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/logout.php">
+                    <span class="nav-icon">🚪</span>
+                    <span class="nav-text">Abmelden</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    
+    <!-- Main Content Area -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+</div> <!-- End app-layout -->
+
+{% else %}
+    <!-- Full page for login and other public routes -->
+    <main class="login-layout" style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: var(--bg-main);">
+        {% block content_public %}{% endblock %}
+    </main>
+{% endif %}
+
+<!-- SweetAlert2 Flash Messages handler -->
+{% if flash_success or flash_error %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        {% if flash_success %}
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer);
+                toast.addEventListener('mouseleave', Swal.resumeTimer);
+            }
+        });
+        Toast.fire({
+            icon: 'success',
+            title: '{{ flash_success|escape('js') }}'
+        });
+        {% endif %}
+        
+        {% if flash_error %}
+        Swal.fire({
+            icon: 'error',
+            title: 'Fehler!',
+            text: '{{ flash_error|escape('js') }}',
+            confirmButtonColor: 'var(--danger-color)'
+        });
+        {% endif %}
+    });
+</script>
+{% endif %}
+
+{% block extra_scripts %}{% endblock %}
+
+</body>
+</html>
