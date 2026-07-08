@@ -84,6 +84,7 @@
         <h1 style="margin: 0;">{{ assignment.title }}</h1>
         <p style="color: var(--text-muted); margin: 5px 0 0 0;">{{ assignment.klasse }} - {{ assignment.fach }} | Erstellt: {{ assignment.created_at|date('d.m.Y') }}</p>
     </div>
+    <button type="button" class="button-danger btn-delete-assignment" data-id="{{ assignment.id }}" style="padding: 10px 16px; font-size: 0.95em; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; background-color: var(--danger-color); color: white;">Hausaufgabe löschen</button>
 </div>
 
 <div class="content-box" style="margin-bottom: 30px; background-color: #f8fafc; border-left: 4px solid var(--primary-color);">
@@ -473,6 +474,28 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if(sortSelect) sortSelect.addEventListener('change', updateGrid);
     if(groupSelect) groupSelect.addEventListener('change', updateGrid);
+
+    // Delete Assignment Handler
+    document.querySelectorAll('.btn-delete-assignment').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            const id = this.dataset.id;
+            Swal.fire({
+                title: 'Hausaufgabe löschen?',
+                text: "Diese Aktion löscht die Hausaufgabe, alle Schüler-Einreichungen (Bilder) und alle Bewertungen unwiderruflich!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: 'var(--danger-color)',
+                cancelButtonColor: 'var(--text-muted)',
+                confirmButtonText: 'Ja, alles löschen',
+                cancelButtonText: 'Abbrechen'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById('delete-assignment-id').value = id;
+                    document.getElementById('delete-assignment-form').submit();
+                }
+            });
+        });
+    });
 });
 
 function confirmDetailsBulkDelete(event) {
@@ -508,4 +531,9 @@ function toggleEditMode(subId, edit) {
     }
 }
 </script>
+
+<form id="delete-assignment-form" action="/admin_homework.php?action=delete_assignment" method="POST" style="display: none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="assignment_id" id="delete-assignment-id" value="">
+</form>
 {% endblock %}

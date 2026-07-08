@@ -72,15 +72,22 @@ class AIService {
                   "Die Aufgabe lautet: " . $taskDescription . "\n\n" .
                   ($contextImagePath ? "Ich habe dir oben auch ein Bild als Kontext (Musterlösung/Aufgabe) beigefügt.\n" : "") .
                   "Hier ist die eingereichte Hausaufgabe von Schüler " . $studentPseudonym . ". \n" .
-                  "Werte diese Hausaufgabe aus und antworte AUSSCHLIESSLICH im JSON-Format mit exakt folgenden Feldern:\n" .
+                  "Werte diese Hausaufgabe aus und antworte AUSSCHLIESSLICH im JSON-Format. \n" .
+                  "WICHTIG FÜR DIE KOORDINATEN (`box_2d`):\n" .
+                  "- Lokalisierte Fehler dürfen NICHT verschoben oder ungenau sein. Die roten Boxen werden direkt über das Bild gelegt, sie müssen exakt den fehlerhaften Rechenschritt oder die fehlerhafte Zahl umschließen.\n" .
+                  "- Die Koordinaten `[ymin, xmin, ymax, xmax]` sind normalisiert von 0 bis 1000 bezogen auf die gesamte Bildhöhe und -breite.\n" .
+                  "- 0 ist der ganz obere/linke Rand, 1000 ist der ganz untere/rechte Rand. Beachte bei Hochformat-Bildern, dass y=1000 das untere Ende ist.\n" .
+                  "- Benutze das Feld `image_analysis` als Denk-Schritt (Chain of Thought), um die visuelle Anordnung der mathematischen Zeilen von oben nach unten (Y-Achse) und links nach rechts (X-Achse) zu beschreiben, bevor du die exakten Koordinaten-Werte setzt.\n\n" .
+                  "Antworte mit folgendem JSON-Format:\n" .
                   "{\n" .
+                  "  \"image_analysis\": \"Beschreibe hier strukturiert, in welchen Zeilen/Bereichen sich welche Rechenschritte und Fehler befinden (z.B. 'Zeile 1 bei y=150 bis 220', 'Fehler 1 in Zeile 4 bei y=640 bis 680, x=450 bis 500').\",\n" .
                   "  \"student_feedback\": \"Dein konstruktives, motivierendes Feedback für den Schüler in der Du-Form.\",\n" .
                   "  \"teacher_notes\": \"Kurze, stichpunktartige Liste der fachlichen oder konzeptionellen Fehler für die Lehrkraft zur Auswertung.\",\n" .
                   "  \"score\": 85,\n" .
                   "  \"errors\": [\n" .
                   "    {\n" .
                   "      \"description\": \"Kurze, ermutigende Erklärung, was hier falsch berechnet/geschrieben wurde.\",\n" .
-                  "      \"box_2d\": [ymin, xmin, ymax, xmax] // Relativierte Koordinaten von 0 bis 1000 für die Bounding Box des Fehlers im Bild. Z.B. [450, 200, 500, 400]\n" .
+                  "      \"box_2d\": [ymin, xmin, ymax, xmax] // Bounding Box des Fehlers im Bild. Z.B. [640, 450, 680, 500]\n" .
                   "    }\n" .
                   "  ]\n" .
                   "}";
@@ -108,7 +115,7 @@ class AIService {
         ];
 
         try {
-            $response = $this->client->post('v1beta/models/gemini-2.0-flash:generateContent?key=' . $this->apiKey, [
+            $response = $this->client->post('v1beta/models/gemini-2.5-flash:generateContent?key=' . $this->apiKey, [
                 'json' => $payload
             ]);
 

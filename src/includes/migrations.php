@@ -39,7 +39,8 @@ function run_all_migrations() {
         'alter_homework_context.sql',
         'alter_feedback_templates.sql',
         'alter_feedback_templates_klasse_fach.sql',
-        'alter_homework_submission_token.sql'
+        'alter_homework_submission_token.sql',
+        'alter_homework_expected_submissions.sql'
     ];
 
     foreach ($sql_files as $file) {

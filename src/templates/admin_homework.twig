@@ -26,7 +26,7 @@
     <form action="/admin_homework.php?action=create" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 15px;">
             <div class="form-group" style="margin: 0;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 600;">Klasse</label>
                 <select name="klasse" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: white;">
@@ -54,6 +54,10 @@
             <div class="form-group" style="margin: 0;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 600;">Fach</label>
                 <input type="text" name="fach" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div class="form-group" style="margin: 0;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600;">Erwartete Abgaben</label>
+                <input type="number" name="expected_submissions" min="0" value="25" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
         </div>
 
@@ -104,8 +108,9 @@
                     <td style="padding: 12px;">
                         <span class="badge" style="background-color: var(--primary-color); color: white; padding: 4px 8px; border-radius: 12px;">{{ assignment.submission_count }}</span>
                     </td>
-                    <td style="padding: 12px; text-align: right;">
-                        <a href="/admin_homework.php?action=view&id={{ assignment.id }}" class="btn" style="background-color: #f1f5f9; color: var(--primary-color); padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 0.9em;">Ergebnisse & Link</a>
+                    <td style="padding: 12px; text-align: right; white-space: nowrap;">
+                        <a href="/admin_homework.php?action=view&id={{ assignment.id }}" class="btn" style="background-color: #f1f5f9; color: var(--primary-color); padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 0.9em; display: inline-block;">Ergebnisse & Link</a>
+                        <button type="button" class="button-danger btn-delete-assignment" data-id="{{ assignment.id }}" style="padding: 6px 12px; font-size: 0.9em; border-radius: 4px; margin-left: 5px; display: inline-block;">Löschen</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -171,12 +176,39 @@
     {% if not has_any_submissions %}
         <p style="color: var(--text-muted); text-align: center; padding: 20px; margin: 0;">Bisher wurden noch keine Hausaufgaben von Schülern eingereicht.</p>
     {% endif %}
+    
+    <form id="delete-assignment-form" action="/admin_homework.php?action=delete_assignment" method="POST" style="display: none;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="assignment_id" id="delete-assignment-id" value="">
+    </form>
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // Delete Assignment Handler
+    document.querySelectorAll('.btn-delete-assignment').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            const id = this.dataset.id;
+            Swal.fire({
+                title: 'Hausaufgabe löschen?',
+                text: "Diese Aktion löscht die Hausaufgabe, alle Schüler-Einreichungen (Bilder) und alle Bewertungen unwiderruflich!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: 'var(--danger-color)',
+                cancelButtonColor: 'var(--text-muted)',
+                confirmButtonText: 'Ja, alles löschen',
+                cancelButtonText: 'Abbrechen'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById('delete-assignment-id').value = id;
+                    document.getElementById('delete-assignment-form').submit();
+                }
+            });
+        });
+    });
+
     // Select All Checkbox Handler
     document.querySelectorAll('.select-all-checkbox').forEach(selectAll => {
         selectAll.addEventListener('change', function() {

@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fach = $_POST['fach'] ?? '';
         $title = $_POST['title'] ?? '';
         $description = $_POST['description'] ?? '';
+        $expected_submissions = max(0, (int)($_POST['expected_submissions'] ?? 0));
         
         $context_image_path = null;
         if (isset($_FILES['context_image']) && $_FILES['context_image']['error'] === UPLOAD_ERR_OK) {
@@ -41,12 +42,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $token = bin2hex(random_bytes(16));
         
-        $stmt = $conn->prepare("INSERT INTO homework_assignments (teacher_id, klasse, fach, title, description, token, context_image_path) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        if ($stmt->execute([$user_id, $klasse, $fach, $title, $description, $token, $context_image_path])) {
+        $stmt = $conn->prepare("INSERT INTO homework_assignments (teacher_id, klasse, fach, title, description, token, context_image_path, expected_submissions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        if ($stmt->execute([$user_id, $klasse, $fach, $title, $description, $token, $context_image_path, $expected_submissions])) {
             $_SESSION['flash_success'] = "Hausaufgabe erfolgreich erstellt.";
         } else {
             $_SESSION['flash_error'] = "Fehler beim Erstellen.";
         }
+        header("Location: admin_homework.php");
+        exit;
+    } elseif ($action === 'delete_assignment') {
+        $assignment_id = (int)($_POST['assignment_id'] ?? 0);
+        
+        // Verify ownership of the assignment
+        $stmt_verify = $conn->prepare("SELECT id, context_image_path FROM homework_assignments WHERE id = ? AND teacher_id = ?");
+        $stmt_verify->execute([$assignment_id, $user_id]);
+        $assignment = $stmt_verify->fetch();
+        
+        if ($assignment) {
+            try {
+                $conn->beginTransaction();
+                
+                // 1. Fetch all submission image paths associated with this assignment
+                $stmt_subs = $conn->prepare("SELECT image_path FROM homework_submissions WHERE assignment_id = ?");
+                $stmt_subs->execute([$assignment_id]);
+                $submissions = $stmt_subs->fetchAll(PDO::FETCH_COLUMN);
+                
+                // 2. Delete all submission images from disk
+                foreach ($submissions as $image) {
+                    if (!empty($image)) {
+                        $file_path = __DIR__ . '/public/' . $image;
+                        if (file_exists($file_path)) {
+                            unlink($file_path);
+                        }
+                    }
+                }
+                
+                // 3. Delete the assignment's own context image from disk
+                if (!empty($assignment['context_image_path'])) {
+                    $context_file_path = __DIR__ . '/public/' . $assignment['context_image_path'];
+                    if (file_exists($context_file_path)) {
+                        unlink($context_file_path);
+                    }
+                }
+                
+                // 4. Delete the assignment from the database (submissions & evaluations will cascade delete in DB)
+                $stmt_del = $conn->prepare("DELETE FROM homework_assignments WHERE id = ?");
+                $stmt_del->execute([$assignment_id]);
+                
+                $conn->commit();
+                $_SESSION['flash_success'] = "Hausaufgabe und alle zugehörigen Daten wurden erfolgreich gelöscht.";
+            } catch (Exception $e) {
+                $conn->rollBack();
+                $_SESSION['flash_error'] = "Fehler beim Löschen: " . $e->getMessage();
+            }
+        } else {
+            $_SESSION['flash_error'] = "Keine Berechtigung oder Hausaufgabe nicht gefunden.";
+        }
+        
         header("Location: admin_homework.php");
         exit;
     } elseif ($action === 'delete_sub') {
