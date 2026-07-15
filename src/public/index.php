@@ -26,6 +26,7 @@ $routes = [
     '' => 'index.php',
     'dashboard' => 'dashboard_unterricht.php',
     'login' => 'login.php',
+    'login_sso' => 'login_sso.php',
     'logout' => 'logout.php',
     'change_password' => 'change_password.php',
     'profile_action' => 'profile_action.php',
