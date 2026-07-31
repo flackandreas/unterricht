@@ -20,8 +20,9 @@ Ein modernes, webbasiertes System für Schulen zur Verwaltung von Hausaufgaben, 
 - Automatische Vorkorrektur und detaillierte Feedback-Vorschläge für eingereichte Hausaufgaben zur Entlastung von Lehrkräften.
 
 ### 🎮 Schüler-Gamification & Dashboard
-- **Gamification Widgets**: Motivierende Anzeige von **Erfahrungspunkten (XP)**, **Streak-Tagen** (kontinuierliche Abgaben) und **Klassen-Quests**.
-- **Klassenfortschritt**: Gemeinsamer Fortschrittsbalken für Klassen-Herausforderungen.
+- **Klassen-Quests & Belohnungen**: Gemeinsamer Fortschrittsbalken für Klassen-Herausforderungen. Lehrkräfte können individuelle Klassen-Belohnungen definieren (z. B. *"5 Min. Musik am Stundenende"*), die bei 100% Abgabe-Quote freigeschaltet werden.
+- **Meilenstein-Badges & Effekte**: Dynamische Status-Badges (🛡️ Quest gestartet, ⚔️ Auf dem Vormarsch, 🔥 Endspurt, 🏆 Meisterhaft Vollendet) und feierlicher Konfetti-Effekt beim Erreichen von 100%.
+- **Gamification Widgets**: Motivierende Anzeige von **Erfahrungspunkten (XP)** und **Streak-Tagen** (kontinuierliche Abgaben).
 - **Personalisierung**: Avatar-Generierung über Dicebear API.
 
 ### 📊 Unterrichts-Feedback & Trends
