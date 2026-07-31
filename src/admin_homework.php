@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $title = $_POST['title'] ?? '';
         $description = $_POST['description'] ?? '';
         $expected_submissions = max(0, (int)($_POST['expected_submissions'] ?? 0));
+        $quest_reward = trim($_POST['quest_reward'] ?? '');
         
         $context_image_path = null;
         if (isset($_FILES['context_image']) && $_FILES['context_image']['error'] === UPLOAD_ERR_OK) {
@@ -42,8 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $token = bin2hex(random_bytes(16));
         
-        $stmt = $conn->prepare("INSERT INTO homework_assignments (teacher_id, klasse, fach, title, description, token, context_image_path, expected_submissions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        if ($stmt->execute([$user_id, $klasse, $fach, $title, $description, $token, $context_image_path, $expected_submissions])) {
+        $stmt = $conn->prepare("INSERT INTO homework_assignments (teacher_id, klasse, fach, title, description, token, context_image_path, expected_submissions, quest_reward) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        if ($stmt->execute([$user_id, $klasse, $fach, $title, $description, $token, $context_image_path, $expected_submissions, $quest_reward])) {
             $_SESSION['flash_success'] = "Hausaufgabe erfolgreich erstellt.";
         } else {
             $_SESSION['flash_error'] = "Fehler beim Erstellen.";

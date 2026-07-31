@@ -26,7 +26,7 @@
     <form action="/admin_homework.php?action=create" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-bottom: 15px;">
             <div class="form-group" style="margin: 0;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 600;">Klasse</label>
                 <select name="klasse" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: white;">
@@ -58,6 +58,10 @@
             <div class="form-group" style="margin: 0;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 600;">Erwartete Abgaben</label>
                 <input type="number" name="expected_submissions" min="0" value="25" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div class="form-group" style="margin: 0;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600;">🎁 Quest-Belohnung (optional)</label>
+                <input type="text" name="quest_reward" placeholder="z.B. 5 Min. Musik hören" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
         </div>
 

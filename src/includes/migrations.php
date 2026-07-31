@@ -40,7 +40,8 @@ function run_all_migrations() {
         'alter_feedback_templates.sql',
         'alter_feedback_templates_klasse_fach.sql',
         'alter_homework_submission_token.sql',
-        'alter_homework_expected_submissions.sql'
+        'alter_homework_expected_submissions.sql',
+        'alter_homework_quest_reward.sql'
     ];
 
     foreach ($sql_files as $file) {

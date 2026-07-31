@@ -14,7 +14,7 @@ $conn = db_connect();
 $view_token = $_GET['view'] ?? '';
 if (!empty($view_token)) {
     $stmt = $conn->prepare("
-        SELECT s.*, a.title as assignment_title, a.klasse, a.fach, a.description, a.expected_submissions,
+        SELECT s.*, a.title as assignment_title, a.klasse, a.fach, a.description, a.expected_submissions, a.quest_reward,
                e.student_feedback, e.score, e.error_markers
         FROM homework_submissions s
         JOIN homework_assignments a ON s.assignment_id = a.id
@@ -38,6 +38,7 @@ if (!empty($view_token)) {
         'sub' => $submission,
         'actual_submissions' => $actual_submissions,
         'expected_submissions' => (int)$submission['expected_submissions'],
+        'quest_reward' => $submission['quest_reward'] ?? null,
         'host_url' => (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]"
     ]);
     exit;
@@ -196,7 +197,8 @@ echo $twig->render('student_homework.twig', [
     'error' => $error,
     'result' => $result,
     'actual_submissions' => $actual_submissions,
-    'expected_submissions' => (int)($assignment['expected_submissions'] ?? 0)
+    'expected_submissions' => (int)($assignment['expected_submissions'] ?? 0),
+    'quest_reward' => $assignment['quest_reward'] ?? null
 ]);
 
 function autoRotateImage($imagePath) {

@@ -194,32 +194,83 @@
         </div>
     </div>
 
-    <!-- Class Quest Widget -->
+    <!-- Enhanced Class Quest Widget -->
     {% if expected_submissions > 0 %}
         {% set percent = (actual_submissions / expected_submissions * 100)|round(0) %}
         {% if percent > 100 %}{% set percent = 100 %}{% endif %}
-        <div class="class-quest-widget" style="background: #f8fafc; border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <span style="font-weight: 600; font-size: 0.95em; display: flex; align-items: center; gap: 6px;">
-                    <span>🛡️</span>
-                    <strong>Klassen-Quest: {{ assignment.klasse }} - {{ assignment.fach }}</strong>
+        
+        {% set badge_icon = '🛡️' %}
+        {% set badge_status = 'Quest gestartet' %}
+        {% if percent >= 100 %}
+            {% set badge_icon = '🏆' %}
+            {% set badge_status = 'Quest Meisterhaft Vollendet!' %}
+        {% elseif percent >= 50 %}
+            {% set badge_icon = '🔥' %}
+            {% set badge_status = 'Endspurt (Gemeinsam stark!)' %}
+        {% elseif percent >= 25 %}
+            {% set badge_icon = '⚔️' %}
+            {% set badge_status = 'Auf dem Vormarsch' %}
+        {% endif %}
+
+        <div class="class-quest-widget" style="background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%); border: 1.5px solid {% if percent >= 100 %}#10b981{% else %}#cbd5e1{% endif %}; padding: 22px; border-radius: 16px; margin-bottom: 25px; box-shadow: 0 8px 20px rgba(0,0,0,0.04); position: relative; overflow: hidden;">
+            {% if percent >= 100 %}
+                <div style="position: absolute; top: 0; right: 0; background: #10b981; color: white; padding: 4px 14px; font-size: 0.75em; font-weight: 700; border-bottom-left-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    🎉 Abgeschlossen
+                </div>
+            {% endif %}
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                <span style="font-weight: 700; font-size: 1.05em; display: flex; align-items: center; gap: 8px; color: var(--text-dark);">
+                    <span style="font-size: 1.3em;">{{ badge_icon }}</span>
+                    <span>Klassen-Quest: {{ assignment.klasse }} ({{ assignment.fach }})</span>
                 </span>
-                <span style="font-size: 0.85em; font-weight: 700; color: var(--primary-dark);">{{ actual_submissions }} / {{ expected_submissions }} Abgaben ({{ percent }}%)</span>
+                <span style="font-size: 0.9em; font-weight: 700; color: #1e293b; background: white; padding: 5px 12px; border-radius: 20px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
+                    {{ actual_submissions }} / {{ expected_submissions }} Abgaben ({{ percent }}%)
+                </span>
             </div>
             
-            <!-- Progress Bar -->
-            <div style="width: 100%; height: 12px; background: #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 8px;">
-                <div style="width: {{ percent }}%; height: 100%; background: linear-gradient(90deg, #3498db, #2ecc71); border-radius: 6px; transition: width 1s ease;"></div>
+            <!-- Progress Bar with gradient -->
+            <div style="width: 100%; height: 16px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 12px; padding: 2px; box-sizing: border-box; position: relative;">
+                <div style="width: {{ percent }}%; height: 100%; background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #10b981 100%); border-radius: 8px; transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);"></div>
             </div>
             
-            <p style="margin: 0; font-size: 0.85em; color: var(--text-dark); line-height: 1.4;">
-                {% if percent >= 100 %}
-                    <strong>Quest erfolgreich abgeschlossen! 🎉 Hervorragende Teamarbeit der ganzen Klasse!</strong>
-                {% else %}
-                    Gemeinsam stark: Es fehlen noch {{ expected_submissions - actual_submissions }} Abgaben, um die Quest abzuschließen!
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <p style="margin: 0; font-size: 0.9em; color: #475569; line-height: 1.4;">
+                    <strong style="color: {% if percent >= 100 %}#059669{% else %}#1e293b{% endif %};">{{ badge_status }}</strong> – 
+                    {% if percent >= 100 %}
+                        Hervorragende Teamarbeit der ganzen Klasse!
+                    {% else %}
+                        Noch <strong>{{ expected_submissions - actual_submissions }} Abgaben</strong> nötig!
+                    {% endif %}
+                </p>
+                
+                {% if quest_reward %}
+                    <div style="margin-top: 8px; width: 100%; padding: 10px 14px; background: {% if percent >= 100 %}#ecfdf5{% else %}#fff7ed{% endif %}; border: 1px dashed {% if percent >= 100 %}#10b981{% else %}#f97316{% endif %}; border-radius: 10px; display: flex; align-items: center; gap: 10px; font-size: 0.9em; color: {% if percent >= 100 %}#065f46{% else %}#9a3412{% endif %};">
+                        <span style="font-size: 1.2em;">{% if percent >= 100 %}🎁{% else %}🔒{% endif %}</span>
+                        <span>
+                            <strong>{% if percent >= 100 %}Freigeschaltete Klassen-Belohnung:{% else %}Freischaltbare Belohnung:{% endif %}</strong>
+                            {{ quest_reward }}
+                        </span>
+                    </div>
                 {% endif %}
-            </p>
+            </div>
         </div>
+
+        {% if percent >= 100 %}
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    setTimeout(function() {
+                        if (typeof confetti === 'function') {
+                            confetti({
+                                particleCount: 75,
+                                spread: 80,
+                                origin: { y: 0.6 }
+                            });
+                        }
+                    }, 400);
+                });
+            </script>
+        {% endif %}
     {% endif %}
 
     {% if error %}
