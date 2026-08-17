@@ -27,41 +27,81 @@ $stmt_q->execute([$session_id]);
 $questions = $stmt_q->fetchAll(PDO::FETCH_ASSOC);
 
 // 3. Fetch responses
-$stmt_res = $conn->prepare("SELECT question_id, score FROM feedback_responses WHERE session_id = ?");
+$stmt_res = $conn->prepare("SELECT question_id, score, response_text FROM feedback_responses WHERE session_id = ?");
 $stmt_res->execute([$session_id]);
 $responses = $stmt_res->fetchAll(PDO::FETCH_ASSOC);
 
 // 4. Process data for charts and calculate averages
 $data = [];
 foreach ($questions as $q) {
+    $type = $q['question_type'] ?? 'emoji';
     $data[$q['id']] = [
         'text' => $q['question_text'],
-        'scores' => [1=>0, 2=>0, 3=>0, 4=>0, 5=>0],
+        'type' => $type,
+        'options' => $q['options'] ?? '',
+        'scores' => [],
+        'responses' => [],
         'total_score' => 0,
-        'count' => 0
+        'count' => 0,
+        'avg' => 0
     ];
+    
+    if ($type === 'emoji') {
+        $data[$q['id']]['scores'] = [1=>0, 2=>0, 3=>0, 4=>0, 5=>0];
+    } elseif ($type === 'mc') {
+        $opts = array_map('trim', explode(',', $q['options'] ?? ''));
+        foreach ($opts as $opt) {
+            if (!empty($opt)) {
+                $data[$q['id']]['scores'][$opt] = 0;
+            }
+        }
+    }
 }
 
-$total_score = 0;
-$response_count = count($responses);
+$total_emoji_score = 0;
+$total_emoji_count = 0;
 
 foreach ($responses as $r) {
-    if (isset($data[$r['question_id']])) {
-        $data[$r['question_id']]['scores'][$r['score']]++;
-        $data[$r['question_id']]['total_score'] += $r['score'];
-        $data[$r['question_id']]['count']++;
+    $q_id = $r['question_id'];
+    if (isset($data[$q_id])) {
+        $type = $data[$q_id]['type'];
+        if ($type === 'emoji') {
+            $score = (int)$r['score'];
+            $data[$q_id]['scores'][$score]++;
+            $data[$q_id]['total_score'] += $score;
+            $data[$q_id]['count']++;
+            
+            $total_emoji_score += $score;
+            $total_emoji_count++;
+        } elseif ($type === 'mc') {
+            $val = trim($r['response_text'] ?? '');
+            if ($val !== '') {
+                if (!isset($data[$q_id]['scores'][$val])) {
+                    $data[$q_id]['scores'][$val] = 0;
+                }
+                $data[$q_id]['scores'][$val]++;
+                $data[$q_id]['count']++;
+            }
+        } elseif ($type === 'text') {
+            $val = trim($r['response_text'] ?? '');
+            if ($val !== '') {
+                $data[$q_id]['responses'][] = $val;
+                $data[$q_id]['count']++;
+            }
+        }
     }
-    $total_score += $r['score'];
 }
 
 // Calculate individual question averages
 foreach ($data as $q_id => &$q_data) {
-    $q_data['avg'] = ($q_data['count'] > 0) ? ($q_data['total_score'] / $q_data['count']) : 0;
+    if ($q_data['type'] === 'emoji') {
+        $q_data['avg'] = ($q_data['count'] > 0) ? ($q_data['total_score'] / $q_data['count']) : 0;
+    }
 }
 unset($q_data);
 
 // Calculate overall session average
-$session_average = ($response_count > 0) ? ($total_score / $response_count) : 0;
+$session_average = ($total_emoji_count > 0) ? ($total_emoji_score / $total_emoji_count) : 0;
 
 $num_questions = count($questions);
 $total_votes = ($num_questions > 0) ? count($responses) / $num_questions : 0;

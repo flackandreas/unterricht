@@ -33,15 +33,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Du hast für diese Stunde bereits abgestimmt. Vielen Dank!";
     } else {
         $scores = $_POST['scores'] ?? [];
+        $text_responses = $_POST['text_responses'] ?? [];
+        $mc_responses = $_POST['mc_responses'] ?? [];
         
-        $stmt_ins = $conn->prepare("INSERT INTO feedback_responses (session_id, question_id, score) VALUES (?, ?, ?)");
+        $stmt_ins = $conn->prepare("INSERT INTO feedback_responses (session_id, question_id, score, response_text) VALUES (?, ?, ?, ?)");
         
         foreach ($questions as $q) {
             $q_id = $q['id'];
-            $score = isset($scores[$q_id]) ? (int)$scores[$q_id] : 3;
-            $score = max(1, min(5, $score));
+            $type = $q['question_type'] ?? 'emoji';
             
-            $stmt_ins->execute([$session['id'], $q_id, $score]);
+            $score = null;
+            $response_text = null;
+            
+            if ($type === 'emoji') {
+                $score = isset($scores[$q_id]) ? (int)$scores[$q_id] : 3;
+                $score = max(1, min(5, $score));
+            } elseif ($type === 'text') {
+                $response_text = isset($text_responses[$q_id]) ? trim($text_responses[$q_id]) : '';
+            } elseif ($type === 'mc') {
+                $response_text = isset($mc_responses[$q_id]) ? trim($mc_responses[$q_id]) : '';
+            }
+            
+            $stmt_ins->execute([$session['id'], $q_id, $score, $response_text]);
         }
 
         // Set cookie to prevent double voting (expires in 1 hour)
@@ -197,24 +210,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 4 => "4 von 5 Sterne (Zufrieden)",
                 5 => "5 von 5 Sterne (Sehr zufrieden)"
             ];
-            foreach ($questions as $q): ?>
+            foreach ($questions as $q): 
+                $type = $q['question_type'] ?? 'emoji';
+            ?>
                 <fieldset class="question-box" style="border: none; padding: 0; margin: 0 0 30px 0;">
                     <legend class="question-label" style="font-weight: 600; display: block; margin-bottom: 15px; padding: 0; font-size: 1rem; color: var(--text);">
                         <?php echo htmlspecialchars($q['question_text']); ?>
                     </legend>
-                    <div class="emoji-group">
-                        <?php 
-                        $emojis = ['😫', '🙁', '😐', '🙂', '😄'];
-                        foreach($emojis as $i => $emoji): $val = $i + 1; ?>
-                            <div class="emoji-item">
-                                <input type="radio" name="scores[<?php echo $q['id']; ?>]" id="q<?php echo $q['id']; ?>_<?php echo $val; ?>" value="<?php echo $val; ?>" <?php echo $val == 3 ? 'checked' : ''; ?>>
-                                <label for="q<?php echo $q['id']; ?>_<?php echo $val; ?>">
-                                    <span class="sr-only"><?php echo $emoji_labels[$val]; ?></span>
-                                    <span aria-hidden="true"><?php echo $emoji; ?></span>
-                                </label>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
+                    
+                    <?php if ($type === 'emoji'): ?>
+                        <div class="emoji-group">
+                            <?php 
+                            $emojis = ['😫', '🙁', '😐', '🙂', '😄'];
+                            foreach($emojis as $i => $emoji): $val = $i + 1; ?>
+                                <div class="emoji-item">
+                                    <input type="radio" name="scores[<?php echo $q['id']; ?>]" id="q<?php echo $q['id']; ?>_<?php echo $val; ?>" value="<?php echo $val; ?>" <?php echo $val == 3 ? 'checked' : ''; ?>>
+                                    <label for="q<?php echo $q['id']; ?>_<?php echo $val; ?>">
+                                        <span class="sr-only"><?php echo $emoji_labels[$val]; ?></span>
+                                        <span aria-hidden="true"><?php echo $emoji; ?></span>
+                                    </label>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php elseif ($type === 'text'): ?>
+                        <textarea name="text_responses[<?php echo $q['id']; ?>]" placeholder="Deine Antwort..." required style="width: 100%; min-height: 80px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; font-size: 0.95rem; box-sizing: border-box; resize: vertical;"></textarea>
+                    <?php elseif ($type === 'mc'): ?>
+                        <div style="display: flex; flex-direction: column; gap: 10px; text-align: left; padding: 0 5px;">
+                            <?php 
+                            $opts = array_map('trim', explode(',', $q['options'] ?? ''));
+                            foreach ($opts as $key => $opt): 
+                                if (empty($opt)) continue;
+                                $opt_id = "q" . $q['id'] . "_mc_" . $key;
+                            ?>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="radio" name="mc_responses[<?php echo $q['id']; ?>]" id="<?php echo $opt_id; ?>" value="<?php echo htmlspecialchars($opt); ?>" required style="width: 18px; height: 18px; cursor: pointer; margin: 0;">
+                                    <label for="<?php echo $opt_id; ?>" style="font-size: 1rem; cursor: pointer; color: var(--text); font-weight: 500;"><?php echo htmlspecialchars($opt); ?></label>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                 </fieldset>
             <?php endforeach; ?>
             

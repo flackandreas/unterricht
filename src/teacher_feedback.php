@@ -49,7 +49,7 @@ try {
 
     // Fetch actual questions for templates
     $stmt_questions = $conn->prepare("
-        SELECT template_id, question_text 
+        SELECT template_id, question_text, question_type, options 
         FROM feedback_template_questions 
         ORDER BY template_id, sort_order ASC
     ");
@@ -59,7 +59,11 @@ try {
     // Group questions by template ID
     $template_questions = [];
     foreach ($template_questions_raw as $q) {
-        $template_questions[$q['template_id']][] = $q['question_text'];
+        $template_questions[$q['template_id']][] = [
+            'text' => $q['question_text'],
+            'type' => $q['question_type'],
+            'options' => $q['options'] ?? ''
+        ];
     }
     
     // Add questions list directly into the templates array

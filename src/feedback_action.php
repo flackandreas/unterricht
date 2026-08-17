@@ -46,21 +46,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         // Save Questions
         $questions = $_POST['questions'] ?? [];
         if (empty($questions)) {
-            $questions = ["Wie war die heutige Stunde?", "Wie ist aktuell das Klassenklima?"];
+            $questions = [
+                ['text' => "Wie war die heutige Stunde?", 'type' => 'emoji', 'options' => ''],
+                ['text' => "Wie ist aktuell das Klassenklima?", 'type' => 'emoji', 'options' => '']
+            ];
         }
         
-        $stmt_q = $conn->prepare("INSERT INTO feedback_questions (session_id, question_text, sort_order) VALUES (?, ?, ?)");
-        foreach ($questions as $index => $q_text) {
-            $q_text = trim($q_text);
+        $stmt_q = $conn->prepare("INSERT INTO feedback_questions (session_id, question_text, question_type, options, sort_order) VALUES (?, ?, ?, ?, ?)");
+        foreach ($questions as $index => $q_data) {
+            if (is_array($q_data)) {
+                $q_text = trim($q_data['text'] ?? '');
+                $q_type = trim($q_data['type'] ?? 'emoji');
+                $q_options = trim($q_data['options'] ?? '');
+            } else {
+                $q_text = trim($q_data);
+                $q_type = 'emoji';
+                $q_options = '';
+            }
+            
             if (!empty($q_text)) {
-                $stmt_q->execute([$session_id, $q_text, $index]);
+                $stmt_q->execute([
+                    $session_id, 
+                    $q_text, 
+                    $q_type, 
+                    ($q_type === 'mc' && !empty($q_options)) ? $q_options : null, 
+                    $index
+                ]);
             }
         }
         
         // Check if user wants to save this as a template
         $save_template = !empty($_POST['save_template']);
         $template_title = trim($_POST['template_title'] ?? '');
-
+ 
         if ($save_template && !empty($template_title)) {
             try {
                 // Insert template
@@ -69,11 +87,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $new_template_id = $conn->lastInsertId();
                 
                 // Insert template questions
-                $stmt_tq = $conn->prepare("INSERT INTO feedback_template_questions (template_id, question_text, sort_order) VALUES (?, ?, ?)");
-                foreach ($questions as $index => $q_text) {
-                    $q_text = trim($q_text);
+                $stmt_tq = $conn->prepare("INSERT INTO feedback_template_questions (template_id, question_text, question_type, options, sort_order) VALUES (?, ?, ?, ?, ?)");
+                foreach ($questions as $index => $q_data) {
+                    if (is_array($q_data)) {
+                        $q_text = trim($q_data['text'] ?? '');
+                        $q_type = trim($q_data['type'] ?? 'emoji');
+                        $q_options = trim($q_data['options'] ?? '');
+                    } else {
+                        $q_text = trim($q_data);
+                        $q_type = 'emoji';
+                        $q_options = '';
+                    }
+                    
                     if (!empty($q_text)) {
-                        $stmt_tq->execute([$new_template_id, $q_text, $index]);
+                        $stmt_tq->execute([
+                            $new_template_id, 
+                            $q_text, 
+                            $q_type, 
+                            ($q_type === 'mc' && !empty($q_options)) ? $q_options : null, 
+                            $index
+                        ]);
                     }
                 }
                 $_SESSION['flash_success'] = "Feedback-Sitzung gestartet und Vorlage \"" . htmlspecialchars($template_title) . "\" gespeichert.";

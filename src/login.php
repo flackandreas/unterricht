@@ -26,15 +26,18 @@ if (isset($_GET['autologin']) && $_GET['autologin'] === '1') {
         $user = $stmt->fetch();
         
         if ($user) {
-            $sso_secret = 'SchulHub_SSO_Secret_Key_2026';
-            $time_bucket = floor(time() / 300);
+            $sso_secret = $_ENV['SSO_SECRET'] ?? getenv('SSO_SECRET') ?: '';
             $token_valid = false;
-            for ($i = 0; $i <= 1; $i++) {
-                $bucket = $time_bucket - $i;
-                $expected = hash('sha256', $user['kuerzel'] . $sso_secret . $bucket);
-                if (hash_equals($expected, $token)) {
-                    $token_valid = true;
-                    break;
+            
+            if (!empty($sso_secret)) {
+                $time_bucket = floor(time() / 300);
+                for ($i = 0; $i <= 1; $i++) {
+                    $bucket = $time_bucket - $i;
+                    $expected = hash('sha256', $user['kuerzel'] . $sso_secret . $bucket);
+                    if (hash_equals($expected, $token)) {
+                        $token_valid = true;
+                        break;
+                    }
                 }
             }
             

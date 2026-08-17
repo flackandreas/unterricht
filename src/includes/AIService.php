@@ -70,9 +70,17 @@ class AIService {
 
         $prompt = "Du bist ein erfahrener und ermutigender Lehrer. \n" .
                   "Die Aufgabe lautet: " . $taskDescription . "\n\n" .
-                  ($contextImagePath ? "Ich habe dir oben auch ein Bild als Kontext (Musterlösung/Aufgabe) beigefügt.\n" : "") .
+                  ($contextImagePath ? "Ich habe dir oben auch eine Datei/Dokument als Kontext (Musterlösung/Aufgabe) beigefügt.\n" : "") .
                   "Hier ist die eingereichte Hausaufgabe von Schüler " . $studentPseudonym . ". \n" .
-                  "Werte diese Hausaufgabe aus und antworte AUSSCHLIESSLICH im JSON-Format. \n" .
+                  "Werte diese Hausaufgabe aus und antworte AUSSCHLIESSLICH im JSON-Format. \n\n" .
+                  "WICHTIGE REGELN FÜR BEWERTUNG UND PUNKTZAHL (`score`):\n" .
+                  "1. VOLLSTÄNDIGKEITSPRÜFUNG: Überprüfe genau, welche Teilaufgaben (z. B. 1a, 1b, 1c, 1d) in der Aufgabenstellung oder im Kontextdokument gefordert wurden und welche davon der Schüler tatsächlich bearbeitet hat.\n" .
+                  "2. PUNKTABZUG BEI FEHLENDEN TEILAUFGABEN: Wenn Teilaufgaben fehlen oder gar nicht bearbeitet wurden (z. B. nur 1a und 1b statt 1a bis 1d), ziehe DAFÜR PROPORTIONAL PUNKTE AB! Ein Schüler, der nur die Hälfte der geforderten Aufgaben eingereicht hat, darf MAXIMAL 50 von 100 Punkten erhalten, selbst wenn seine eingereichten Teile fehlerfrei sind.\n" .
+                  "3. HINWEIS IN DEN FEEDBACKS: Erwähne fehlende Teilaufgaben explizit im `student_feedback` (z. B. 'Hinweis: Aufgaben 1c und 1d fehlen noch') sowie in den `teacher_notes` (z. B. 'Unvollständig: 2 von 4 Teilaufgaben fehlen').\n\n" .
+                  "WICHTIG FÜR MATHEMATISCHE FORMATIERUNG:\n" .
+                  "- Verwende für mathematische Ausdrücke saubere Typografie und Unicode-Zeichen statt Roh-Code!\n" .
+                  "- Hochzahlen: Verwende immer echte Hochzahlen wie `²`, `³`, `⁴`, `ⁿ` (z.B. `(x - 2)²` statt `(x-2)^2`, `x² + y²` statt `x^2+y^2`, `a³` statt `a^3`).\n" .
+                  "- Operatoren & Indizes: Verwende `·` (Mal-Punkt statt `*`), `±`, `≠`, `≤`, `≥`, `√` sowie Indizes wie `x₁`, `x₂`.\n\n" .
                   "WICHTIG FÜR DIE KOORDINATEN (`box_2d`):\n" .
                   "- Lokalisierte Fehler dürfen NICHT verschoben oder ungenau sein. Die roten Boxen werden direkt über das Bild gelegt, sie müssen exakt den fehlerhaften Rechenschritt oder die fehlerhafte Zahl umschließen.\n" .
                   "- Die Koordinaten `[ymin, xmin, ymax, xmax]` sind normalisiert von 0 bis 1000 bezogen auf die gesamte Bildhöhe und -breite.\n" .
@@ -80,14 +88,15 @@ class AIService {
                   "- Benutze das Feld `image_analysis` als Denk-Schritt (Chain of Thought), um die visuelle Anordnung der mathematischen Zeilen von oben nach unten (Y-Achse) und links nach rechts (X-Achse) zu beschreiben, bevor du die exakten Koordinaten-Werte setzt.\n\n" .
                   "Antworte mit folgendem JSON-Format:\n" .
                   "{\n" .
-                  "  \"image_analysis\": \"Beschreibe hier strukturiert, in welchen Zeilen/Bereichen sich welche Rechenschritte und Fehler befinden (z.B. 'Zeile 1 bei y=150 bis 220', 'Fehler 1 in Zeile 4 bei y=640 bis 680, x=450 bis 500').\",\n" .
-                  "  \"student_feedback\": \"Dein konstruktives, motivierendes Feedback für den Schüler in der Du-Form.\",\n" .
-                  "  \"teacher_notes\": \"Kurze, stichpunktartige Liste der fachlichen oder konzeptionellen Fehler für die Lehrkraft zur Auswertung.\",\n" .
+                  "  \"image_analysis\": \"Beschreibe hier strukturiert, welche Teilaufgaben gefordert wurden, welche vorhanden sind und in welchen Zeilen/Bereichen sich welche Rechenschritte und Fehler befinden.\",\n" .
+                  "  \"student_feedback\": \"Dein konstruktives, motivierendes Feedback für den Schüler in der Du-Form (inklusive Hinweis auf eventuell fehlende Teilaufgaben).\",\n" .
+                  "  \"teacher_notes\": \"Kurze, stichpunktartige Liste der fachlichen/konzeptionellen Fehler und der Vollständigkeit (z.B. ob Teilaufgaben fehlen) für die Lehrkraft.\",\n" .
                   "  \"score\": 85,\n" .
                   "  \"errors\": [\n" .
                   "    {\n" .
+                  "      \"step_text\": \"Genaue Angabe der Aufgabe/Zeile im Bild (z.B. 'Aufgabe 1b, Zeile 3: 4x + 12 = 36').\",\n" .
                   "      \"description\": \"Kurze, ermutigende Erklärung, was hier falsch berechnet/geschrieben wurde.\",\n" .
-                  "      \"box_2d\": [ymin, xmin, ymax, xmax] // Bounding Box des Fehlers im Bild. Z.B. [640, 450, 680, 500]\n" .
+                  "      \"box_2d\": [ymin, xmin, ymax, xmax]\n" .
                   "    }\n" .
                   "  ]\n" .
                   "}";
@@ -139,5 +148,81 @@ class AIService {
         } catch (RequestException $e) {
             throw new \Exception("API Request failed: " . $e->getMessage());
         }
+    }
+
+    public function generateAssignmentSummary(string $taskTitle, string $taskDescription, array $submissions): array {
+        $notesList = [];
+        foreach ($submissions as $sub) {
+            if (!empty($sub['teacher_notes'])) {
+                $notesList[] = "• Schüler-Einreichung (Pseudonym: " . ($sub['student_pseudonym'] ?? 'Schüler') . ", Punkte: " . ($sub['score'] ?? 'N/A') . "/100):\n  " . $sub['teacher_notes'];
+            }
+        }
+
+        if (empty($notesList)) {
+            return [
+                'common_errors' => 'Noch keine qualifizierten Auswertungen vorhanden.',
+                'solution_approach' => 'Sobald Schüler ihre Hausarbeit abgeben, wird hier automatisch die Zusammenfassung der Fehler und ein didaktischer Lösungsansatz generiert.'
+            ];
+        }
+
+        if (empty($this->apiKey)) {
+            return [
+                'common_errors' => "• Typische Unklarheiten bei der Anwendung der mathematischen Grundregeln.\n• Teils unvollständige Bearbeitung der Teilaufgaben.\n• Vorzeichenfehler bei Äquivalenzumformungen.",
+                'solution_approach' => "Empfehlung für die nächste Stunde:\n1. Reche den 1. Teilschritt gemeinsam an der Tafel vor.\n2. Weise explizit auf die typische Stolperfalle bei den Vorzeichen hin.\n3. Lass die Schüler eine ähnliche Aufgabe in Partnerarbeit vertiefen."
+            ];
+        }
+
+        $notesCombined = implode("\n\n", $notesList);
+
+        $prompt = "Du bist ein erfahrener Didaktiker und Mathematiklehrer.\n" .
+                  "Hausaufgabe: " . $taskTitle . "\n" .
+                  "Aufgabenstellung: " . $taskDescription . "\n\n" .
+                  "Hier sind die bisherigen Auswertungsausgaben aller eingereichten Schüler-Arbeiten:\n" .
+                  $notesCombined . "\n\n" .
+                  "Erstelle für die Lehrkraft eine prägnante Klassen-Zusammenfassung im JSON-Format:\n" .
+                  "1. `common_errors`: Kurze, prägnante Zusammenfassung (stichpunktartig oder Absätze) der HÄUFIGSTEN Fehler, Fehlkonzepte und Lücken in dieser Klasse.\n" .
+                  "2. `solution_approach`: Ein konkreter didaktischer Lösungsansatz / Vorschlag für die Besprechung in der nächsten Unterrichtsstunde (wie der Lehrer die Fehler aufgreifen und die Lösung erklären kann).\n\n" .
+                  "Verwende für mathematische Ausdrücke saubere Typografie (wie ², ³, ·, √).\n" .
+                  "Antworte AUSSCHLIESSLICH im folgenden JSON-Format:\n" .
+                  "{\n" .
+                  "  \"common_errors\": \"...\",\n" .
+                  "  \"solution_approach\": \"...\"\n" .
+                  "}";
+
+        $payload = [
+            'contents' => [
+                [
+                    'parts' => [
+                        ['text' => $prompt]
+                    ]
+                ]
+            ],
+            'generationConfig' => [
+                'temperature' => 0.3,
+                'responseMimeType' => 'application/json'
+            ]
+        ];
+
+        try {
+            $response = $this->client->post('v1beta/models/gemini-2.5-flash:generateContent?key=' . $this->apiKey, [
+                'json' => $payload
+            ]);
+
+            $body = json_decode($response->getBody()->getContents(), true);
+            if (isset($body['candidates'][0]['content']['parts'][0]['text'])) {
+                $responseText = trim(preg_replace('/^```json|```$/m', '', $body['candidates'][0]['content']['parts'][0]['text']));
+                $json = json_decode($responseText, true);
+                if ($json && isset($json['common_errors'], $json['solution_approach'])) {
+                    return $json;
+                }
+            }
+        } catch (\Exception $e) {
+            error_log("Failed to generate assignment summary: " . $e->getMessage());
+        }
+
+        return [
+            'common_errors' => implode("\n", array_slice($notesList, 0, 5)),
+            'solution_approach' => 'Empfehlung: Gehe die wesentlichen Rechenschritte an der Tafel mit der Klasse durch.'
+        ];
     }
 }

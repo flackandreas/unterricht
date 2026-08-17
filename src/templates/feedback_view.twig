@@ -35,27 +35,53 @@
 <div class="form-grid-2" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 500px), 1fr)); gap: 30px;">
     {% for q_id, q_data in data %}
     <div class="content-box">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; gap: 10px;">
             <h3 style="margin: 0; max-width: 70%;">{{ q_data.text }}</h3>
-            <span style="background: #f1f2f6; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600; color: var(--primary-color);">
-                Mittelwert: {{ q_data.avg > 0 ? q_data.avg|number_format(2) ~ ' / 5.0' : '—' }}
-            </span>
+            {% if q_data.type == 'emoji' %}
+                <span style="background: #f1f2f6; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600; color: var(--primary-color); white-space: nowrap;">
+                    Mittelwert: {{ q_data.avg > 0 ? q_data.avg|number_format(2) ~ ' / 5.0' : '—' }}
+                </span>
+            {% elseif q_data.type == 'mc' %}
+                <span style="background: #f1f2f6; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600; color: #2ecc71; white-space: nowrap;">
+                    {{ q_data.count }} Stimmen
+                </span>
+            {% else %}
+                <span style="background: #f1f2f6; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600; color: #9b59b6; white-space: nowrap;">
+                    {{ q_data.count }} Antworten
+                </span>
+            {% endif %}
         </div>
-        <div style="height: 250px;">
-            <canvas id="chart_{{ q_id }}"></canvas>
-        </div>
+        
+        {% if q_data.type == 'emoji' or q_data.type == 'mc' %}
+            <div style="height: 250px; position: relative;">
+                <canvas id="chart_{{ q_id }}"></canvas>
+            </div>
+        {% else %}
+            <div style="max-height: 250px; overflow-y: auto; padding: 5px; border-top: 1px solid #eee;">
+                {% if q_data.responses is not empty %}
+                    <ul style="padding-left: 20px; margin: 10px 0; color: var(--text-dark); line-height: 1.5;">
+                        {% for resp in q_data.responses %}
+                            <li style="margin-bottom: 8px;">{{ resp }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p style="color: var(--text-muted); font-style: italic; text-align: center; margin-top: 50px;">Noch keine Antworten eingegangen.</p>
+                {% endif %}
+            </div>
+        {% endif %}
     </div>
     {% endfor %}
 </div>
 
 <div class="content-box" style="margin-top: 30px;">
     <h3>Interpretation der Ergebnisse</h3>
-    <p>Die Diagramme zeigen die Verteilung der Emoji-Stimmen von 1 (😫) bis 5 (😄) für jede Ihrer individuellen Fragen.</p>
+    <p>Die Diagramme und Listen zeigen die Auswertung der Schülerstimmen für jeden Fragentyp:</p>
     <ul>
-        <li><strong>Hohe Werte (4-5):</strong> Zeigen eine positive Resonanz auf die jeweilige Frage.</li>
-        <li><strong>Niedrige Werte (1-2):</strong> Können auf Frust oder Klärungsbedarf bei der Schülerschaft hindeuten.</li>
+        <li><strong>Emoji-Fragen:</strong> Zeigt den Mittelwert und die Verteilung von 1 (😫) bis 5 (😄).</li>
+        <li><strong>Multiple-Choice:</strong> Visualisiert die Verteilung der ausgewählten Optionen als Kreisdiagramm.</li>
+        <li><strong>Freitext-Fragen:</strong> Listet alle anonymen Kommentare der Schülerschaft auf.</li>
     </ul>
-    <p style="font-size: 0.9em; color: var(--text-muted); italic: true;">Tipp: Nutzen Sie die Ergebnisse als Gesprächsanlass im Unterricht, um gemeinsam mit der Klasse an Verbesserungen zu arbeiten.</p>
+    <p style="font-size: 0.9em; color: var(--text-muted); font-style: italic;">Tipp: Nutzen Sie die Ergebnisse als Gesprächsanlass im Unterricht, um gemeinsam mit der Klasse an Verbesserungen zu arbeiten.</p>
 </div>
 
 {% endblock %}
@@ -63,28 +89,62 @@
 {% block extra_scripts %}
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    const labels = ['😫', '🙁', '😐', '🙂', '😄'];
-    const colors = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#27ae60'];
+    const emojiLabels = ['😫', '🙁', '😐', '🙂', '😄'];
+    const emojiColors = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#27ae60'];
+    const mcColors = ['#3498db', '#2ecc71', '#e74c3c', '#f1c40f', '#9b59b6', '#1abc9c', '#34495e', '#e67e22'];
 
     {% for q_id, q_data in data %}
-    new Chart(document.getElementById('chart_{{ q_id }}'), {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Stimmen',
-                data: [{{ q_data.scores[1] }}, {{ q_data.scores[2] }}, {{ q_data.scores[3] }}, {{ q_data.scores[4] }}, {{ q_data.scores[5] }}],
-                backgroundColor: colors,
-                borderRadius: 5
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-        }
-    });
+        {% if q_data.type == 'emoji' %}
+            new Chart(document.getElementById('chart_{{ q_id }}'), {
+                type: 'bar',
+                data: {
+                    labels: emojiLabels,
+                    datasets: [{
+                        label: 'Stimmen',
+                        data: [{{ q_data.scores[1] }}, {{ q_data.scores[2] }}, {{ q_data.scores[3] }}, {{ q_data.scores[4] }}, {{ q_data.scores[5] }}],
+                        backgroundColor: emojiColors,
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+        {% elseif q_data.type == 'mc' %}
+            {% set mc_labels = [] %}
+            {% set mc_values = [] %}
+            {% for opt, count in q_data.scores %}
+                {% set mc_labels = mc_labels|merge([opt]) %}
+                {% set mc_values = mc_values|merge([count]) %}
+            {% endfor %}
+            new Chart(document.getElementById('chart_{{ q_id }}'), {
+                type: 'pie',
+                data: {
+                    labels: {{ mc_labels|json_encode|raw }},
+                    datasets: [{
+                        data: {{ mc_values|json_encode|raw }},
+                        backgroundColor: mcColors.slice(0, {{ mc_labels|length }})
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { 
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 15
+                            }
+                        } 
+                    }
+                }
+            });
+        {% endif %}
     {% endfor %}
 });
 </script>

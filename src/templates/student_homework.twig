@@ -27,16 +27,50 @@
             position: absolute;
             border: 2px solid var(--danger-color);
             background: rgba(231, 76, 60, 0.15);
-            cursor: help;
-            transition: background 0.2s, border-color 0.2s;
-            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            border-radius: 6px;
         }
-        .error-box:hover {
-            background: rgba(231, 76, 60, 0.3);
+        .error-box.highlight, .error-box:hover {
+            background: rgba(231, 76, 60, 0.35);
             border-color: #c0392b;
+            box-shadow: 0 0 12px rgba(231, 76, 60, 0.6);
             z-index: 10;
         }
-        .error-box::after {
+        .error-pin {
+            position: absolute;
+            top: -12px;
+            left: -12px;
+            background: var(--danger-color);
+            color: white;
+            font-weight: 700;
+            font-size: 0.8rem;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            border: 2px solid white;
+            z-index: 11;
+        }
+        .error-list-item {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--danger-color);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .error-list-item:hover, .error-list-item.active {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            border-left-color: #dc2626;
+            transform: translateX(3px);
+        }
             content: attr(data-description);
             position: absolute;
             bottom: 105%;
@@ -295,7 +329,7 @@
         
         <div style="margin-bottom: 25px;">
             <h4 style="margin-bottom: 8px;">Feedback für dich:</h4>
-            <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; border-left: 4px solid var(--primary-color); white-space: pre-wrap; line-height: 1.5; color: #1e293b;">{{ result.student_feedback }}</div>
+            <div id="student-feedback-box" style="background: #f0fdf4; padding: 20px; border-radius: 8px; border-left: 4px solid var(--primary-color); white-space: pre-wrap; line-height: 1.5; color: #1e293b;">{{ result.student_feedback }}</div>
         </div>
         
         {% if result.score is not null %}
@@ -305,10 +339,13 @@
         {% endif %}
 
         {% if result.image_path %}
-            <div style="margin-top: 30px; margin-bottom: 20px;">
-                <h4 style="margin-top: 0; margin-bottom: 10px; color: var(--text-dark);">Markierte Fehler im Bild (Bewege die Maus über die roten Boxen):</h4>
-                <div class="image-overlay-container">
-                    <img src="/{{ result.image_path }}" style="width: 100%; display: block; border-radius: 8px; border: 1px solid var(--border-color);" alt="Hausaufgabe">
+            <div style="margin-top: 30px; margin-bottom: 25px;">
+                <h4 style="margin-top: 0; margin-bottom: 12px; color: var(--text-dark); font-size: 1.1em; display: flex; align-items: center; gap: 8px;">
+                    <span>📍</span> Markierte Stellen & Fehler im Bild:
+                </h4>
+                
+                <div class="image-overlay-container" style="margin-bottom: 20px;">
+                    <img src="/{{ result.image_path }}" style="width: 100%; display: block; border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.08);" alt="Hausaufgabe">
                     
                     {% for marker in result.errors %}
                         {% set ymin = marker.box_2d[0] / 10 %}
@@ -318,15 +355,96 @@
                         {% set height = ymax - ymin %}
                         {% set width = xmax - xmin %}
                         <div class="error-box" 
+                             id="error-box-{{ loop.index }}"
                              style="position: absolute; top: {{ ymin }}%; left: {{ xmin }}%; width: {{ width }}%; height: {{ height }}%;"
-                             data-description="{{ marker.description }}">
+                             data-description="{{ marker.description }}"
+                             onmouseover="highlightError({{ loop.index }})"
+                             onmouseout="unhighlightError({{ loop.index }})">
+                            <div class="error-pin">{{ loop.index }}</div>
                         </div>
                     {% endfor %}
                 </div>
+
+                {% if result.errors is not empty %}
+                    <div style="margin-top: 20px;">
+                        <h5 style="margin-bottom: 12px; font-size: 0.95em; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Fehler-Details & Erklärungen</h5>
+                        {% for marker in result.errors %}
+                            <div class="error-list-item" 
+                                 id="error-item-{{ loop.index }}"
+                                 onmouseover="highlightError({{ loop.index }})" 
+                                 onmouseout="unhighlightError({{ loop.index }})">
+                                <div style="display: flex; gap: 12px; align-items: flex-start;">
+                                    <span style="background: #e74c3c; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85rem; flex-shrink: 0; margin-top: 2px;">{{ loop.index }}</span>
+                                    <div>
+                                        {% if marker.step_text %}
+                                            <strong class="math-format" style="color: #991b1b; display: block; margin-bottom: 4px; font-size: 0.95em;">{{ marker.step_text }}</strong>
+                                        {% endif %}
+                                        <span class="math-format" style="color: #334155; font-size: 0.9em; line-height: 1.4; display: block;">{{ marker.description }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </div>
         {% endif %}
 
         <script>
+            function formatMathText(str) {
+                if (!str) return '';
+                return str
+                    .replace(/\^2\b/g, '²')
+                    .replace(/\^3\b/g, '³')
+                    .replace(/\^1\b/g, '¹')
+                    .replace(/\^0\b/g, '⁰')
+                    .replace(/\^4\b/g, '⁴')
+                    .replace(/\^5\b/g, '⁵')
+                    .replace(/\^6\b/g, '⁶')
+                    .replace(/\^7\b/g, '⁷')
+                    .replace(/\^8\b/g, '⁸')
+                    .replace(/\^9\b/g, '⁹')
+                    .replace(/\^n\b/g, 'ⁿ')
+                    .replace(/\^x\b/g, 'ˣ')
+                    .replace(/\^\+/g, '⁺')
+                    .replace(/\^-/g, '⁻')
+                    .replace(/\^\(([^)]+)\)/g, function(match, p1) {
+                        const map = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾','n':'ⁿ','x':'ˣ','a':'ᵃ','b':'ᵇ'};
+                        return p1.split('').map(c => map[c] || c).join('');
+                    })
+                    .replace(/_([0-9a-n])/g, function(match, p1) {
+                        const map = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','a':'ₐ','e':'ₑ','i':'ᵢ','o':'ₒ','r':'ᵣ','u':'ᵤ','v':'ᵥ','x':'ₓ','n':'ₙ'};
+                        return map[p1] || match;
+                    })
+                    .replace(/(\d|[a-zA-Z)])\s*\*\s*(\d|[a-zA-Z(])/g, '$1 · $2')
+                    .replace(/!=/g, '≠')
+                    .replace(/<=/g, '≤')
+                    .replace(/>=/g, '≥')
+                    .replace(/\bplusminus\b/gi, '±');
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+                const feedbackEl = document.getElementById('student-feedback-box');
+                if (feedbackEl) {
+                    feedbackEl.innerText = formatMathText(feedbackEl.innerText);
+                }
+                document.querySelectorAll('.math-format').forEach(function(el) {
+                    el.innerText = formatMathText(el.innerText);
+                });
+            });
+
+            function highlightError(id) {
+                const box = document.getElementById('error-box-' + id);
+                const item = document.getElementById('error-item-' + id);
+                if (box) box.classList.add('highlight');
+                if (item) item.classList.add('active');
+            }
+            function unhighlightError(id) {
+                const box = document.getElementById('error-box-' + id);
+                const item = document.getElementById('error-item-' + id);
+                if (box) box.classList.remove('highlight');
+                if (item) item.classList.remove('active');
+            }
+
             function copyLink() {
                 const link = document.getElementById('view-link').href;
                 navigator.clipboard.writeText(link).then(() => {
@@ -347,6 +465,7 @@
         <p style="margin-bottom: 25px;">Bitte trage deinen Namen ein und lade ein Foto deiner Hausaufgabe hoch. Die Auswertung dauert ca. 10-20 Sekunden.</p>
         
         <form action="" method="POST" enctype="multipart/form-data" id="uploadForm" onsubmit="showLoading()">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <div class="form-group">
                 <label for="student_name">Dein Vor- und Nachname</label>
                 <input type="text" id="student_name" name="student_name" required placeholder="z.B. Max Mustermann">

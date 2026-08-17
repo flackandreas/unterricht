@@ -78,13 +78,57 @@
 {% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px;">
     <div>
         <a href="/admin_homework.php" style="color: var(--primary-color); text-decoration: none; margin-bottom: 10px; display: inline-block;">&larr; Zurück zur Übersicht</a>
         <h1 style="margin: 0;">{{ assignment.title }}</h1>
         <p style="color: var(--text-muted); margin: 5px 0 0 0;">{{ assignment.klasse }} - {{ assignment.fach }} | Erstellt: {{ assignment.created_at|date('d.m.Y') }}</p>
     </div>
     <button type="button" class="button-danger btn-delete-assignment" data-id="{{ assignment.id }}" style="padding: 10px 16px; font-size: 0.95em; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; background-color: var(--danger-color); color: white;">Hausaufgabe löschen</button>
+</div>
+
+<!-- KI-Analyse: Häufigste Fehler & Lösungsansatz -->
+<div class="content-box" style="margin-bottom: 30px; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border: 1.5px solid #e2e8f0; border-left: 5px solid #8b5cf6; border-radius: 12px; padding: 22px; box-shadow: 0 4px 15px rgba(0,0,0,0.04);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+        <h3 style="margin: 0; color: #1e293b; font-size: 1.25em; display: flex; align-items: center; gap: 8px;">
+            <span>📊</span> Klassen-Analyse: Häufigste Fehler & Lösungsansatz
+        </h3>
+        {% if submissions|length > 0 %}
+            <form action="/admin_homework.php?action=refresh_summary&id={{ assignment.id }}" method="POST" style="margin: 0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn" style="background: white; border: 1px solid #cbd5e1; color: #475569; padding: 6px 14px; font-size: 0.85em; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                    <span>🔄</span> KI-Analyse neu generieren
+                </button>
+            </form>
+        {% endif %}
+    </div>
+
+    {% if assignment.summary_common_errors or assignment.summary_solution_approach %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 16px;">
+                <h4 style="margin-top: 0; margin-bottom: 10px; color: #991b1b; font-size: 1.05em; display: flex; align-items: center; gap: 6px;">
+                    <span>⚠️</span> Häufigste Fehler in der Klasse
+                </h4>
+                <div class="math-format" style="color: #450a0a; font-size: 0.93em; line-height: 1.55; white-space: pre-wrap;">{{ assignment.summary_common_errors }}</div>
+            </div>
+
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 16px;">
+                <h4 style="margin-top: 0; margin-bottom: 10px; color: #166534; font-size: 1.05em; display: flex; align-items: center; gap: 6px;">
+                    <span>💡</span> Didaktischer Lösungsansatz & Empfehlung
+                </h4>
+                <div class="math-format" style="color: #052e16; font-size: 0.93em; line-height: 1.55; white-space: pre-wrap;">{{ assignment.summary_solution_approach }}</div>
+            </div>
+        </div>
+        {% if assignment.summary_updated_at %}
+            <p style="margin-top: 12px; margin-bottom: 0; font-size: 0.78em; color: #94a3b8; text-align: right;">
+                Zuletzt aktualisiert: {{ assignment.summary_updated_at|date('d.m.Y H:i') }} Uhr
+            </p>
+        {% endif %}
+    {% else %}
+        <div style="padding: 15px; background: #f1f5f9; border-radius: 8px; color: #475569; font-size: 0.93em; text-align: center;">
+            ℹ️ Noch keine Zusammenfassung vorhanden. Sobald Schüler ihre Hausaufgabe einreichen, klicke auf <strong>"KI-Analyse neu generieren"</strong>, um eine automatische Klassen-Auswertung der häufigsten Fehler und didaktischen Lösungsansätze zu erstellen.
+        </div>
+    {% endif %}
 </div>
 
 <div class="content-box" style="margin-bottom: 30px; background-color: #f8fafc; border-left: 4px solid var(--primary-color);">
@@ -594,6 +638,44 @@ function toggleEditMode(subId, edit) {
         editDiv.style.display = edit ? 'block' : 'none';
     }
 }
+
+function formatMathText(str) {
+    if (!str) return '';
+    return str
+        .replace(/\^2\b/g, '²')
+        .replace(/\^3\b/g, '³')
+        .replace(/\^1\b/g, '¹')
+        .replace(/\^0\b/g, '⁰')
+        .replace(/\^4\b/g, '⁴')
+        .replace(/\^5\b/g, '⁵')
+        .replace(/\^6\b/g, '⁶')
+        .replace(/\^7\b/g, '⁷')
+        .replace(/\^8\b/g, '⁸')
+        .replace(/\^9\b/g, '⁹')
+        .replace(/\^n\b/g, 'ⁿ')
+        .replace(/\^x\b/g, 'ˣ')
+        .replace(/\^\+/g, '⁺')
+        .replace(/\^-/g, '⁻')
+        .replace(/\^\(([^)]+)\)/g, function(match, p1) {
+            const map = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾','n':'ⁿ','x':'ˣ','a':'ᵃ','b':'ᵇ'};
+            return p1.split('').map(c => map[c] || c).join('');
+        })
+        .replace(/_([0-9a-n])/g, function(match, p1) {
+            const map = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','a':'ₐ','e':'ₑ','i':'ᵢ','o':'ₒ','r':'ᵣ','u':'ᵤ','v':'ᵥ','x':'ₓ','n':'ₙ'};
+            return map[p1] || match;
+        })
+        .replace(/(\d|[a-zA-Z)])\s*\*\s*(\d|[a-zA-Z(])/g, '$1 · $2')
+        .replace(/!=/g, '≠')
+        .replace(/<=/g, '≤')
+        .replace(/>=/g, '≥')
+        .replace(/\bplusminus\b/gi, '±');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.math-format').forEach(function(el) {
+        el.innerText = formatMathText(el.innerText);
+    });
+});
 </script>
 
 <form id="delete-assignment-form" action="/admin_homework.php?action=delete_assignment" method="POST" style="display: none;">

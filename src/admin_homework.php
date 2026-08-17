@@ -7,6 +7,7 @@
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/twig_setup.php';
+require_once __DIR__ . '/includes/AIService.php';
 
 require_login();
 $user_id = get_current_user_id();
@@ -30,14 +31,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $context_image_path = null;
         if (isset($_FILES['context_image']) && $_FILES['context_image']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = __DIR__ . '/public/uploads/context/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0777, true);
-            }
-            $ext = pathinfo($_FILES['context_image']['name'], PATHINFO_EXTENSION);
-            $filename = uniqid('ctx_') . '.' . $ext;
-            if (move_uploaded_file($_FILES['context_image']['tmp_name'], $uploadDir . $filename)) {
-                $context_image_path = 'uploads/context/' . $filename;
+            $file = $_FILES['context_image'];
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mimeType = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+            
+            $allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+            if (in_array($mimeType, $allowedTypes)) {
+                $mimeToExt = [
+                    'image/jpeg'      => 'jpg',
+                    'image/png'       => 'png',
+                    'image/webp'      => 'webp',
+                    'application/pdf' => 'pdf'
+                ];
+                $ext = $mimeToExt[$mimeType] ?? 'bin';
+                
+                $uploadDir = __DIR__ . '/public/uploads/context/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+                $filename = uniqid('ctx_') . '.' . $ext;
+                if (move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
+                    $context_image_path = 'uploads/context/' . $filename;
+                }
+            } else {
+                $_SESSION['flash_error'] = "Ungültiges Dateiformat für das Kontextdokument. Nur JPG, PNG, WEBP oder PDF sind erlaubt.";
+                header("Location: admin_homework.php");
+                exit;
             }
         }
 
@@ -145,9 +165,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $conn->beginTransaction();
 
-                // Fetch file paths to unlink
-                $stmt_files = $conn->prepare("SELECT image_path FROM homework_submissions WHERE id IN ($placeholders)");
-                $stmt_files->execute($submission_ids);
+                // Fetch file paths to unlink, ensuring they belong to assignments of this teacher
+                $stmt_files = $conn->prepare("
+                    SELECT s.image_path 
+                    FROM homework_submissions s
+                    JOIN homework_assignments a ON s.assignment_id = a.id
+                    WHERE s.id IN ($placeholders) AND a.teacher_id = ?
+                ");
+                $exec_params = array_merge($submission_ids, [$user_id]);
+                $stmt_files->execute($exec_params);
                 $files = $stmt_files->fetchAll(PDO::FETCH_COLUMN);
 
                 foreach ($files as $file) {
@@ -159,12 +185,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                // Delete records
-                $stmt_del = $conn->prepare("DELETE FROM homework_submissions WHERE id IN ($placeholders)");
-                $stmt_del->execute($submission_ids);
+                // Delete records, ensuring ownership
+                $stmt_del = $conn->prepare("
+                    DELETE s FROM homework_submissions s
+                    JOIN homework_assignments a ON s.assignment_id = a.id
+                    WHERE s.id IN ($placeholders) AND a.teacher_id = ?
+                ");
+                $stmt_del->execute($exec_params);
 
                 $conn->commit();
-                $_SESSION['flash_success'] = count($submission_ids) . " Einreichung(en) erfolgreich gelöscht.";
+                $_SESSION['flash_success'] = count($files) . " Einreichung(en) erfolgreich gelöscht.";
             } catch (Exception $e) {
                 $conn->rollBack();
                 $_SESSION['flash_error'] = "Fehler beim Löschen: " . $e->getMessage();
@@ -279,6 +309,46 @@ if ($action === 'list') {
         'current_user_name' => get_current_user_name()
     ]);
     unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+} elseif ($action === 'refresh_summary') {
+    $assignment_id = $_GET['id'] ?? 0;
+    
+    $stmt = $conn->prepare("SELECT * FROM homework_assignments WHERE id = ? AND teacher_id = ?");
+    $stmt->execute([$assignment_id, $user_id]);
+    $assignment = $stmt->fetch();
+
+    if ($assignment) {
+        $stmt_subs = $conn->prepare("
+            SELECT s.*, e.teacher_notes, e.student_feedback, e.score, e.error_markers 
+            FROM homework_submissions s 
+            LEFT JOIN homework_evaluations e ON s.id = e.submission_id 
+            WHERE s.assignment_id = ? 
+            ORDER BY s.created_at DESC
+        ");
+        $stmt_subs->execute([$assignment_id]);
+        $submissions = $stmt_subs->fetchAll();
+
+        $aiService = new \App\Includes\AIService();
+        $summary = $aiService->generateAssignmentSummary($assignment['title'], $assignment['description'], $submissions);
+
+        $stmt_upd = $conn->prepare("
+            UPDATE homework_assignments 
+            SET summary_common_errors = ?, summary_solution_approach = ?, summary_updated_at = NOW() 
+            WHERE id = ?
+        ");
+        $stmt_upd->execute([
+            $summary['common_errors'] ?? null,
+            $summary['solution_approach'] ?? null,
+            $assignment_id
+        ]);
+
+        $_SESSION['flash_success'] = "Analyse der häufigsten Fehler und Lösungsansatz wurden erfolgreich aktualisiert.";
+    } else {
+        $_SESSION['flash_error'] = "Hausaufgabe nicht gefunden oder keine Berechtigung.";
+    }
+
+    header("Location: admin_homework.php?action=view&id=" . (int)$assignment_id);
+    exit;
+
 } elseif ($action === 'view') {
     $assignment_id = $_GET['id'] ?? 0;
     
@@ -300,13 +370,46 @@ if ($action === 'list') {
     $stmt_subs->execute([$assignment_id]);
     $submissions = $stmt_subs->fetchAll();
 
+    // Auto-generate summary if not present yet and evaluated submissions exist
+    if (empty($assignment['summary_common_errors']) && !empty($submissions)) {
+        $hasEvaluated = false;
+        foreach ($submissions as $sub) {
+            if (!empty($sub['teacher_notes'])) {
+                $hasEvaluated = true;
+                break;
+            }
+        }
+        if ($hasEvaluated) {
+            $aiService = new \App\Includes\AIService();
+            $summary = $aiService->generateAssignmentSummary($assignment['title'], $assignment['description'], $submissions);
+
+            $stmt_upd = $conn->prepare("
+                UPDATE homework_assignments 
+                SET summary_common_errors = ?, summary_solution_approach = ?, summary_updated_at = NOW() 
+                WHERE id = ?
+            ");
+            $stmt_upd->execute([
+                $summary['common_errors'] ?? null,
+                $summary['solution_approach'] ?? null,
+                $assignment_id
+            ]);
+
+            $assignment['summary_common_errors'] = $summary['common_errors'] ?? null;
+            $assignment['summary_solution_approach'] = $summary['solution_approach'] ?? null;
+            $assignment['summary_updated_at'] = date('Y-m-d H:i:s');
+        }
+    }
+
     echo $twig->render('admin_homework_details.twig', [
         'assignment' => $assignment,
         'submissions' => $submissions,
         'csrf_token' => get_csrf_token(),
+        'flash_success' => $_SESSION['flash_success'] ?? null,
+        'flash_error' => $_SESSION['flash_error'] ?? null,
         'is_logged_in' => true,
         'is_admin' => is_current_user_admin(),
         'current_user_name' => get_current_user_name(),
         'host_url' => (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]"
     ]);
+    unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 }

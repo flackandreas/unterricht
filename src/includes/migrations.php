@@ -6,8 +6,23 @@
 require_once __DIR__ . '/../config/database.php';
 
 function run_all_migrations() {
-    // Session caching to prevent running migrations query on every request
-    if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['migrations_run'])) {
+    $sql_files = [
+        'alter_homework.sql',
+        'alter_feedback.sql',
+        'db_update_klassen.sql',
+        'alter_teacher_classes.sql',
+        'alter_homework_context.sql',
+        'alter_feedback_templates.sql',
+        'alter_feedback_templates_klasse_fach.sql',
+        'alter_homework_submission_token.sql',
+        'alter_homework_expected_submissions.sql',
+        'alter_homework_quest_reward.sql',
+        'alter_feedback_types.sql',
+        'alter_homework_summary.sql'
+    ];
+
+    // Session caching: only skip if session count matches current number of migration files
+    if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['migrations_run_count']) && $_SESSION['migrations_run_count'] === count($sql_files)) {
         return;
     }
 
@@ -41,7 +56,9 @@ function run_all_migrations() {
         'alter_feedback_templates_klasse_fach.sql',
         'alter_homework_submission_token.sql',
         'alter_homework_expected_submissions.sql',
-        'alter_homework_quest_reward.sql'
+        'alter_homework_quest_reward.sql',
+        'alter_feedback_types.sql',
+        'alter_homework_summary.sql'
     ];
 
     foreach ($sql_files as $file) {
@@ -81,6 +98,6 @@ function run_all_migrations() {
     }
 
     if (session_status() === PHP_SESSION_ACTIVE) {
-        $_SESSION['migrations_run'] = true;
+        $_SESSION['migrations_run_count'] = count($sql_files);
     }
 }
