@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/error_page.php';
 
 require_login();
 
@@ -18,7 +19,7 @@ $stmt->execute([$session_id, get_current_user_id()]);
 $session = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$session) {
-    die("Sitzung nicht gefunden oder keine Berechtigung.");
+    error_page("Sitzung nicht gefunden", "Sie existiert nicht oder gehört einer anderen Lehrkraft.", 404, "/teacher_feedback.php");
 }
 
 // 2. Fetch questions

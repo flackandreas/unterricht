@@ -4,17 +4,40 @@
  * Front Controller & Router
  */
 
+require_once __DIR__ . '/../includes/request.php';
+
 // 1. Security Headers
 header("X-Frame-Options: DENY");
 header("X-Content-Type-Options: nosniff");
 header("Referrer-Policy: strict-origin-when-cross-origin");
 header("Permissions-Policy: geolocation=(), camera=(), microphone=()");
-header("X-XSS-Protection: 1; mode=block");
-if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+header("X-XSS-Protection: 0");
+if (request_is_https()) {
     header("Strict-Transport-Security: max-age=31536000; includeSubDomains");
 }
-// Content-Security-Policy (Base)
-header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://api.qrserver.com https://api.dicebear.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self';");
+
+// Content-Security-Policy
+//
+// Skripte, Schriften, QR-Codes und Avatare kommen jetzt ausschliesslich vom
+// eigenen Server - jsdelivr, fonts.googleapis.com, api.qrserver.com und
+// api.dicebear.com sind deshalb entfernt. 'unsafe-eval' wird nirgends
+// gebraucht und faellt ebenfalls weg.
+//
+// 'unsafe-inline' bleibt vorerst noetig, weil die Templates durchgaengig mit
+// inline-Attributen (style="...", onclick="...") arbeiten.
+header(
+    "Content-Security-Policy: "
+    . "default-src 'self'; "
+    . "script-src 'self' 'unsafe-inline'; "
+    . "style-src 'self' 'unsafe-inline'; "
+    . "img-src 'self' data: blob:; "
+    . "font-src 'self'; "
+    . "connect-src 'self'; "
+    . "object-src 'none'; "
+    . "base-uri 'self'; "
+    . "form-action 'self'; "
+    . "frame-ancestors 'none'"
+);
 
 
 // 2. Routing
@@ -34,7 +57,9 @@ $routes = [
     'admin/klassen' => 'admin_klassen.php',
     'admin/system' => 'admin_system.php',
     'admin/homework' => 'admin_homework.php',
+    'admin/homework/review' => 'admin_homework.php',
     'student/homework' => 'student_homework.php',
+    'media' => 'media.php',
     'student/feedback' => 'student_feedback.php',
     'feedback/trends' => 'feedback_trends.php',
     'feedback/view' => 'feedback_view.php'
@@ -47,7 +72,13 @@ if (array_key_exists($request, $routes)) {
     // Securely allow direct access to root-level PHP controllers only (no directory traversal, no subdirectories like config/ or vendor/)
     $file = $request;
 } else {
-    $file = 'index.php'; // Default fallback
+    http_response_code(404);
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8">'
+        . '<title>Seite nicht gefunden</title></head><body>'
+        . '<h1>404 &ndash; Seite nicht gefunden</h1>'
+        . '<p><a href="/index.php">Zur Startseite</a></p></body></html>';
+    exit;
 }
 
 // Load session, auth, and database migrations

@@ -34,3 +34,21 @@ Thumbs.db
 /tmp/
 *.tmp
 *.bak
+
+# Hochgeladene Dateien (Hausaufgabenfotos, Musterloesungen)
+# Enthalten personenbezogene Daten und gehoeren nicht in die Versionsverwaltung.
+src/storage/
+src/public/uploads/*
+!src/public/uploads/.htaccess
+
+# Composer-Abhaengigkeiten (composer.lock ist versioniert)
+# src/vendor/ bleibt bewusst versioniert: das Deployment bindet src/ direkt
+# ein und fuehrt kein composer install aus.
+
+# Twig-Cache und Migrationsvermerk werden zur Laufzeit erzeugt
+src/storage/cache/
+src/storage/migration-state
+
+# Werkzeug-Caches
+src/.phpunit.result.cache
+.phpunit.cache/

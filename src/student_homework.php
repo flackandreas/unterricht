@@ -1,276 +1,425 @@
 <?php
 /**
  * src/student_homework.php
- * Endpoint for students to submit homework and get AI evaluation.
+ * Abgabe von Hausaufgaben und Anzeige der Auswertung.
+ *
+ * Der Ablauf ist zweistufig: die Abgabe wird sofort quittiert und in die
+ * Warteschlange gestellt, die Auswertung erledigt bin/worker.php. Die
+ * Ergebnisseite fragt den Stand nach. Vorher hing der Request bis zu 60
+ * Sekunden im KI-Aufruf fest; brach die Verbindung ab, blieb die Abgabe
+ * dauerhaft unausgewertet.
  */
 
+require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/error_page.php';
+require_once __DIR__ . '/includes/request.php';
+require_once __DIR__ . '/includes/storage.php';
+require_once __DIR__ . '/includes/rate_limit.php';
 require_once __DIR__ . '/includes/twig_setup.php';
-require_once __DIR__ . '/includes/AIService.php';
+
+use App\Ai\AIService;
+use App\Homework\EvaluationQueue;
+use App\Homework\Gamification;
+use App\Homework\HomeworkRepository;
+use App\Homework\SubmissionService;
 
 $conn = db_connect();
+$repository = new HomeworkRepository($conn);
+$queue = new EvaluationQueue($conn);
+$gamification = new Gamification($conn);
+$service = new SubmissionService($conn, $repository, $queue, $gamification);
 
-// Handle secure submission viewing
-$view_token = $_GET['view'] ?? '';
-if (!empty($view_token)) {
-    $stmt = $conn->prepare("
-        SELECT s.*, a.title as assignment_title, a.klasse, a.fach, a.description, a.expected_submissions, a.quest_reward,
-               e.student_feedback, e.score, e.error_markers
-        FROM homework_submissions s
-        JOIN homework_assignments a ON s.assignment_id = a.id
-        LEFT JOIN homework_evaluations e ON s.id = e.submission_id
-        WHERE s.token = ?
-    ");
-    $stmt->execute([$view_token]);
-    $submission = $stmt->fetch();
-    
-    if (!$submission) {
-        die("Einreichung nicht gefunden oder ungültiger Link.");
+$action = $_GET['action'] ?? $_POST['action'] ?? '';
+
+/**
+ * Antwortet mit JSON und beendet den Request.
+ */
+function json_out(array $daten, int $status = 200): never {
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($daten, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+/**
+ * Laedt eine Einreichung anhand ihres Tokens.
+ */
+function load_submission(PDO $conn, string $token): ?array {
+    if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
+        return null;
     }
-    
-    // Fetch actual submissions count for the class quest in view mode
-    $stmt_count = $conn->prepare("SELECT COUNT(DISTINCT student_pseudonym) FROM homework_submissions WHERE assignment_id = ?");
-    $stmt_count->execute([$submission['assignment_id']]);
-    $actual_submissions = (int)$stmt_count->fetchColumn();
-    
-    require_once __DIR__ . '/includes/twig_setup.php';
+
+    $stmt = $conn->prepare("
+        SELECT s.*, a.title AS assignment_title, a.klasse, a.fach, a.description,
+               a.expected_submissions, a.quest_reward, a.token AS assignment_token,
+               a.release_mode, a.show_score, a.max_submissions_per_student, a.allow_resubmission,
+               e.student_feedback, e.score, e.error_markers, e.criteria_scores,
+               e.review_status, e.released_at,
+               j.status AS job_status, j.attempts AS job_attempts
+        FROM homework_submissions s
+        JOIN homework_assignments a ON a.id = s.assignment_id
+        LEFT JOIN homework_evaluations e ON e.submission_id = s.id
+        LEFT JOIN evaluation_jobs j ON j.submission_id = s.id
+        WHERE s.token = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$token]);
+
+    return $stmt->fetch() ?: null;
+}
+
+/**
+ * Fasst den Bearbeitungsstand fuer die Anzeige zusammen.
+ */
+function submission_state(array $sub): string {
+    if (($sub['status'] ?? '') === 'failed') {
+        return 'failed';
+    }
+    if (empty($sub['student_feedback'])) {
+        return 'processing';
+    }
+    if (($sub['review_status'] ?? 'released') === 'draft') {
+        return 'awaiting_review';
+    }
+
+    return 'ready';
+}
+
+// ---------------------------------------------------------------------
+// Statusabfrage der Ergebnisseite
+// ---------------------------------------------------------------------
+if ($action === 'status') {
+    $token = (string)($_GET['t'] ?? '');
+
+    if (!rate_limit_allow($conn, 'submission_status', request_client_ip(), 600, 3600)) {
+        json_out(['state' => 'processing'], 429);
+    }
+
+    $sub = load_submission($conn, $token);
+    if ($sub === null) {
+        json_out(['state' => 'unknown'], 404);
+    }
+
+    json_out([
+        'state'    => submission_state($sub),
+        'attempts' => (int)($sub['job_attempts'] ?? 0),
+    ]);
+}
+
+// ---------------------------------------------------------------------
+// Sprachniveau des Feedbacks umformulieren
+// ---------------------------------------------------------------------
+if ($action === 'rephrase_level') {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !verify_csrf_token($_POST['csrf_token'] ?? '')) {
+        json_out(['success' => false, 'error' => 'Ungültige Anfrage. Bitte lade die Seite neu.'], 400);
+    }
+
+    $sub_token = (string)($_POST['submission_token'] ?? '');
+    $target_level = (string)($_POST['target_level'] ?? 'appropriate');
+
+    if (!in_array($target_level, ['simple', 'appropriate', 'complex'], true)) {
+        $target_level = 'appropriate';
+    }
+
+    if (!preg_match('/^[a-f0-9]{32}$/', $sub_token)) {
+        json_out(['success' => false, 'error' => 'Einreichung nicht gefunden.'], 400);
+    }
+
+    // Jeder Aufruf kostet einen Gemini-Request.
+    if (!rate_limit_allow($conn, 'rephrase_level', $sub_token, 12, 3600)
+        || !rate_limit_allow($conn, 'rephrase_level_ip', request_client_ip(), 60, 3600)) {
+        json_out(['success' => false, 'error' => 'Zu viele Anfragen. Bitte versuche es später erneut.'], 429);
+    }
+
+    $sub = load_submission($conn, $sub_token);
+
+    if ($sub === null || empty($sub['student_feedback']) || submission_state($sub) !== 'ready') {
+        json_out(['success' => false, 'error' => 'Einreichung nicht gefunden.'], 404);
+    }
+
+    try {
+        $ai = new AIService();
+        json_out([
+            'success' => true,
+            'rephrased_feedback' => $ai->rephraseStudentFeedback(
+                (string)$sub['student_feedback'],
+                $target_level,
+                (string)($sub['description'] ?? '')
+            ),
+        ]);
+    } catch (\Throwable $e) {
+        error_log('Umformulierung fehlgeschlagen: ' . $e->getMessage());
+        json_out(['success' => false, 'error' => 'Das Feedback kann gerade nicht umformuliert werden.'], 503);
+    }
+}
+
+// ---------------------------------------------------------------------
+// Rueckmeldung zum Feedback ("das stimmt nicht")
+// ---------------------------------------------------------------------
+if ($action === 'report_feedback') {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !verify_csrf_token($_POST['csrf_token'] ?? '')) {
+        json_out(['success' => false, 'error' => 'Ungültige Anfrage. Bitte lade die Seite neu.'], 400);
+    }
+
+    $sub_token = (string)($_POST['submission_token'] ?? '');
+    $reason = (string)($_POST['reason'] ?? 'other');
+    $message = trim((string)($_POST['message'] ?? ''));
+
+    if (!in_array($reason, ['wrong', 'unclear', 'unfair', 'other'], true)) {
+        $reason = 'other';
+    }
+
+    $sub = load_submission($conn, $sub_token);
+    if ($sub === null) {
+        json_out(['success' => false, 'error' => 'Einreichung nicht gefunden.'], 404);
+    }
+
+    if (!rate_limit_allow($conn, 'feedback_report', $sub_token, 3, 86400)) {
+        json_out(['success' => false, 'error' => 'Du hast dazu bereits eine Rückmeldung gesendet.'], 429);
+    }
+
+    $conn->prepare('INSERT INTO submission_feedback_reports (submission_id, reason, message) VALUES (?, ?, ?)')
+        ->execute([(int)$sub['id'], $reason, mb_substr($message, 0, 1000)]);
+
+    json_out(['success' => true]);
+}
+
+// ---------------------------------------------------------------------
+// Ergebnisseite
+// ---------------------------------------------------------------------
+$view_token = (string)($_GET['view'] ?? '');
+if ($view_token !== '') {
+    $sub = load_submission($conn, $view_token);
+
+    if ($sub === null) {
+        error_page("Einreichung nicht gefunden", "Dieser Link ist ungültig oder die Abgabe wurde gelöscht.", 404, null);
+    }
+
+    $markers = [];
+    if (!empty($sub['error_markers'])) {
+        $markers = json_decode((string)$sub['error_markers'], true) ?: [];
+    }
+
+    $criteriaScores = [];
+    if (!empty($sub['criteria_scores'])) {
+        $criteriaScores = json_decode((string)$sub['criteria_scores'], true) ?: [];
+    }
+
     echo $twig->render('student_homework_view.twig', [
-        'sub' => $submission,
-        'actual_submissions' => $actual_submissions,
-        'expected_submissions' => (int)$submission['expected_submissions'],
-        'quest_reward' => $submission['quest_reward'] ?? null,
-        'host_url' => (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]"
+        'sub'                  => $sub,
+        'state'                => submission_state($sub),
+        'markers'              => $markers,
+        'criteria'             => build_criteria_view($repository->criteriaFor((int)$sub['assignment_id']), $criteriaScores),
+        'progress'             => $gamification->progressFor((string)$sub['klasse'], (string)$sub['student_name']),
+        'leaderboard'          => $gamification->classLeaderboard((string)$sub['klasse']),
+        'actual_submissions'   => $repository->distinctStudentCount((int)$sub['assignment_id']),
+        'expected_submissions' => (int)$sub['expected_submissions'],
+        'quest_reward'         => $sub['quest_reward'] ?? null,
+        'csrf_token'           => get_csrf_token(),
+        'host_url'             => request_base_url(),
     ]);
     exit;
 }
 
-$token = $_GET['t'] ?? '';
+// ---------------------------------------------------------------------
+// Abgabeformular
+// ---------------------------------------------------------------------
+$token = (string)($_GET['t'] ?? '');
 
-if (empty($token)) {
-    die("Ungültiger Link.");
+if ($token === '' || !preg_match('/^[a-f0-9]{32}$/', $token)) {
+    error_page("Ungültiger Link", "Bitte prüfe den Link oder frage deine Lehrkraft nach einem neuen.", 404, null);
 }
 
-$stmt = $conn->prepare("SELECT * FROM homework_assignments WHERE token = ?");
-$stmt->execute([$token]);
-$assignment = $stmt->fetch();
+$assignment = $repository->assignmentByToken($token);
 
-if (!$assignment) {
-    die("Hausaufgabe nicht gefunden oder Link abgelaufen.");
+if ($assignment === null) {
+    error_page("Hausaufgabe nicht gefunden", "Der Link ist abgelaufen oder die Hausaufgabe wurde entfernt.", 404, null);
 }
 
 $error = null;
-$result = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Check if the POST request exceeded post_max_size (which clears $_POST and $_FILES)
-    if (empty($_POST) && empty($_FILES) && (isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0)) {
-        $error = "Die hochgeladenen Daten überschreiten das Limit. Bitte lade ein kleineres Bild hoch.";
-    } else {
-        $csrf_token = $_POST['csrf_token'] ?? '';
-        if (!verify_csrf_token($csrf_token)) {
-            $error = "Sicherheitsfehler: Ungültiger Token. Bitte laden Sie die Seite neu.";
-        } else {
-            $student_name = trim($_POST['student_name'] ?? '');
-            
-            if (empty($student_name)) {
-                $error = "Bitte gib deinen Namen ein.";
-            } elseif (!isset($_FILES['homework_image'])) {
-                $error = "Bitte lade ein Bild deiner Hausaufgabe hoch.";
-            } elseif ($_FILES['homework_image']['error'] !== UPLOAD_ERR_OK) {
-                $errorCode = $_FILES['homework_image']['error'];
-                switch ($errorCode) {
-                    case UPLOAD_ERR_INI_SIZE:
-                    case UPLOAD_ERR_FORM_SIZE:
-                        $error = "Das Bild ist zu groß. Bitte verkleinere das Bild oder lade ein kleineres Foto hoch (max. 40 MB).";
-                        break;
-                    case UPLOAD_ERR_PARTIAL:
-                        $error = "Das Bild wurde nur teilweise hochgeladen. Bitte versuche es erneut.";
-                        break;
-                    case UPLOAD_ERR_NO_FILE:
-                        $error = "Bitte lade ein Bild deiner Hausaufgabe hoch.";
-                        break;
-                    case UPLOAD_ERR_NO_TMP_DIR:
-                        $error = "Fehler: Temporäres Upload-Verzeichnis fehlt auf dem Server.";
-                        break;
-                    case UPLOAD_ERR_CANT_WRITE:
-                        $error = "Fehler: Bild konnte nicht auf dem Server gespeichert werden.";
-                        break;
-                    default:
-                        $error = "Fehler beim Hochladen (Code: $errorCode).";
-                        break;
-                }
-            } else {
-                $file = $_FILES['homework_image'];
-                $finfo = finfo_open(FILEINFO_MIME_TYPE);
-                $mimeType = finfo_file($finfo, $file['tmp_name']);
-                finfo_close($finfo);
-                
-                $allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-                
-                if (!in_array($mimeType, $allowedTypes)) {
-                    $error = "Nur JPG, PNG oder WEBP Bilder sind erlaubt. Erkannt: " . htmlspecialchars($mimeType);
-                } else {
-                    // Pseudonym generieren
-                    $pseudonym = 'Student_' . bin2hex(random_bytes(4));
-                    
-                    // Upload Verzeichnis sichern
-                    $uploadDir = __DIR__ . '/public/uploads/homework/';
-                    if (!is_dir($uploadDir)) {
-                        mkdir($uploadDir, 0777, true);
-                    }
-                    
-                    $mimeToExt = [
-                        'image/jpeg' => 'jpg',
-                        'image/png'  => 'png',
-                        'image/webp' => 'webp'
-                    ];
-                    $extension = $mimeToExt[$mimeType] ?? 'bin';
-                    $filename = uniqid('hw_') . '.' . $extension;
-                    $destination = $uploadDir . $filename;
-                    
-                    if (move_uploaded_file($file['tmp_name'], $destination)) {
-                        // Auto-Rotate Image based on EXIF orientation if needed
-                        autoRotateImage($destination);
-                        
-                        $relativePath = 'uploads/homework/' . $filename;
-                        
-                        // Submission speichern
-                        $sub_token = bin2hex(random_bytes(16));
-                        $stmt_sub = $conn->prepare("INSERT INTO homework_submissions (assignment_id, student_name, student_pseudonym, image_path, token) VALUES (?, ?, ?, ?, ?)");
-                        $stmt_sub->execute([$assignment['id'], $student_name, $pseudonym, $relativePath, $sub_token]);
-                        $submission_id = $conn->lastInsertId();
-                        
-                        // KI Auswertung
-                        try {
-                            $aiService = new \App\Includes\AIService();
-                            $contextPath = !empty($assignment['context_image_path']) ? __DIR__ . '/public/' . $assignment['context_image_path'] : null;
-                            $eval = $aiService->evaluateHomeworkImage($assignment['description'], $destination, $pseudonym, $contextPath);
-                            
-                            // Normalisiere Feedback und Lehrernotizen (da die KI diese manchmal als Array zurückgibt)
-                            $studentFeedback = $eval['student_feedback'] ?? 'Kein Feedback generiert.';
-                            if (is_array($studentFeedback)) {
-                                $studentFeedback = implode("\n", array_map(function($item) {
-                                    return is_array($item) ? json_encode($item, JSON_UNESCAPED_UNICODE) : (string)$item;
-                                }, $studentFeedback));
-                            }
-                            
-                            $teacherNotes = $eval['teacher_notes'] ?? 'Keine Notizen.';
-                            if (is_array($teacherNotes)) {
-                                $teacherNotes = implode("\n", array_map(function($item) {
-                                    return is_array($item) ? json_encode($item, JSON_UNESCAPED_UNICODE) : (string)$item;
-                                }, $teacherNotes));
-                            }
-
-                            // Evaluation speichern
-                            $error_markers_json = isset($eval['errors']) ? json_encode($eval['errors']) : null;
-                            $stmt_eval = $conn->prepare("INSERT INTO homework_evaluations (submission_id, student_feedback, teacher_notes, score, error_markers) VALUES (?, ?, ?, ?, ?)");
-                            $stmt_eval->execute([
-                                $submission_id, 
-                                $studentFeedback, 
-                                $teacherNotes, 
-                                $eval['score'] ?? null,
-                                $error_markers_json
-                            ]);
-                            
-                            // Status updaten
-                            $conn->prepare("UPDATE homework_submissions SET status = 'evaluated' WHERE id = ?")->execute([$submission_id]);
-                            
-                            $result = [
-                                'student_feedback' => $studentFeedback,
-                                'score' => $eval['score'] ?? null,
-                                'errors' => $eval['errors'] ?? [],
-                                'image_path' => $relativePath,
-                                'token' => $sub_token,
-                                'student_name' => $student_name
-                            ];
-                        } catch (\Exception $e) {
-                            $error = "Fehler bei der KI-Auswertung: " . $e->getMessage();
-                        }
-                    } else {
-                        $error = "Fehler beim Hochladen der Datei.";
-                    }
-                }
-            }
-        }
-    }
-}
-
-$actual_submissions = 0;
-if ($assignment) {
-    $stmt_count = $conn->prepare("SELECT COUNT(DISTINCT student_pseudonym) FROM homework_submissions WHERE assignment_id = ?");
-    $stmt_count->execute([$assignment['id']]);
-    $actual_submissions = (int)$stmt_count->fetchColumn();
+    $error = handle_submission($assignment, $conn, $service, $token);
 }
 
 echo $twig->render('student_homework.twig', [
-    'assignment' => $assignment,
-    'error' => $error,
-    'result' => $result,
-    'actual_submissions' => $actual_submissions,
+    'assignment'           => $assignment,
+    'error'                => $error,
+    'due_date'             => $assignment['due_date'] ?? null,
+    'is_overdue'           => !empty($assignment['due_date']) && strtotime((string)$assignment['due_date']) < time(),
+    'actual_submissions'   => $repository->distinctStudentCount((int)$assignment['id']),
     'expected_submissions' => (int)($assignment['expected_submissions'] ?? 0),
-    'quest_reward' => $assignment['quest_reward'] ?? null,
-    'csrf_token' => get_csrf_token()
+    'quest_reward'         => $assignment['quest_reward'] ?? null,
+    'criteria'             => $repository->criteriaFor((int)$assignment['id']),
+    'csrf_token'           => get_csrf_token(),
 ]);
 
-function autoRotateImage($imagePath) {
-    if (!file_exists($imagePath) || !function_exists('exif_read_data')) {
-        return;
+/**
+ * Nimmt das Abgabeformular entgegen.
+ *
+ * Bei Erfolg wird auf die Ergebnisseite weitergeleitet (Post/Redirect/Get),
+ * damit ein Neuladen keine zweite Abgabe ausloest.
+ *
+ * @return string|null Fehlermeldung oder null
+ */
+function handle_submission(array $assignment, PDO $conn, SubmissionService $service, string $token): ?string {
+    // Ueberschreitet der Upload post_max_size, sind $_POST und $_FILES leer.
+    if ($_POST === [] && $_FILES === [] && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+        return "Die hochgeladenen Daten überschreiten das Limit. Bitte lade ein kleineres Bild hoch.";
     }
-    
-    $exif = @exif_read_data($imagePath);
-    $ort = 0;
-    if (!empty($exif['Orientation'])) {
-        $ort = (int)$exif['Orientation'];
-    } elseif (!empty($exif['IFD0']['Orientation'])) {
-        $ort = (int)$exif['IFD0']['Orientation'];
+
+    if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
+        return "Sicherheitsfehler: Ungültiger Token. Bitte lade die Seite neu.";
     }
-    
-    if (!in_array($ort, [3, 6, 8])) {
-        return;
+
+    if (!rate_limit_allow($conn, 'homework_submit_ip', request_client_ip(), 20, 3600)
+        || !rate_limit_allow($conn, 'homework_submit_task', $token, 200, 3600)) {
+        http_response_code(429);
+        return "Es wurden zu viele Abgaben in kurzer Zeit gesendet. Bitte versuche es in einer Stunde erneut.";
     }
-    
-    $mime = @mime_content_type($imagePath);
-    $image = null;
-    if ($mime === 'image/jpeg' || $mime === 'image/jpg') {
-        $image = @imagecreatefromjpeg($imagePath);
-    } elseif ($mime === 'image/png') {
-        $image = @imagecreatefrompng($imagePath);
-    } elseif ($mime === 'image/webp') {
-        $image = @imagecreatefromwebp($imagePath);
+
+    $student_name = trim((string)($_POST['student_name'] ?? ''));
+    if ($student_name === '') {
+        return "Bitte gib deinen Namen ein.";
     }
-    
-    if (!$image) {
-        return;
+
+    $fehler = upload_error_message($_FILES['homework_image'] ?? null);
+    if ($fehler !== null) {
+        return $fehler;
     }
-    
-    $degrees = 0;
-    switch ($ort) {
-        case 3: // 180 degrees
-            $degrees = 180;
-            break;
-        case 6: // 90 degrees clockwise (270 CCW in GD)
-            $degrees = 270;
-            break;
-        case 8: // 90 degrees counter-clockwise
-            $degrees = 90;
-            break;
+
+    $file = $_FILES['homework_image'];
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = (string)finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+
+    $erlaubt = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+    if (!isset($erlaubt[$mimeType])) {
+        return "Nur JPG, PNG oder WEBP Bilder sind erlaubt. Erkannt: " . htmlspecialchars($mimeType);
     }
-    
-    if ($degrees !== 0) {
-        $rotated = @imagerotate($image, $degrees, 0);
-        if ($rotated !== false) {
-            imagedestroy($image);
-            $image = $rotated;
+
+    // Ablage ausserhalb des DocumentRoot, Dateiname aus dem Zufallsgenerator.
+    $relativePath = storage_store_upload($file['tmp_name'], 'homework', $erlaubt[$mimeType]);
+    $destination = $relativePath !== null ? storage_resolve($relativePath) : null;
+
+    if ($destination === null) {
+        return "Die Datei konnte nicht gespeichert werden. Bitte versuche es erneut.";
+    }
+
+    autoRotateImage($destination);
+
+    $ergebnis = $service->submit($assignment, $student_name, $relativePath);
+
+    if (!$ergebnis['ok']) {
+        storage_delete($relativePath);
+        return $ergebnis['error'];
+    }
+
+    header('Location: /student_homework.php?view=' . $ergebnis['token'], true, 303);
+    exit;
+}
+
+/**
+ * Uebersetzt den Upload-Fehlercode in eine verstaendliche Meldung.
+ */
+function upload_error_message(?array $file): ?string {
+    if ($file === null) {
+        return "Bitte lade ein Bild deiner Hausaufgabe hoch.";
+    }
+
+    return match ($file['error']) {
+        UPLOAD_ERR_OK        => null,
+        UPLOAD_ERR_INI_SIZE,
+        UPLOAD_ERR_FORM_SIZE => "Das Bild ist zu groß. Bitte lade ein kleineres Foto hoch (max. 40 MB).",
+        UPLOAD_ERR_PARTIAL   => "Das Bild wurde nur teilweise hochgeladen. Bitte versuche es erneut.",
+        UPLOAD_ERR_NO_FILE   => "Bitte lade ein Bild deiner Hausaufgabe hoch.",
+        UPLOAD_ERR_NO_TMP_DIR,
+        UPLOAD_ERR_CANT_WRITE => "Das Bild konnte auf dem Server nicht gespeichert werden.",
+        default              => "Beim Hochladen ist ein Fehler aufgetreten. Bitte versuche es erneut.",
+    };
+}
+
+/**
+ * Verbindet das Bewertungsraster mit den erreichten Punkten.
+ *
+ * @param list<array{id:int,label:string,description:string,max_points:int}> $criteria
+ * @param list<array{id:int,points:float,comment:string}> $scores
+ * @return list<array<string,mixed>>
+ */
+function build_criteria_view(array $criteria, array $scores): array {
+    if ($criteria === []) {
+        return [];
+    }
+
+    $nachId = [];
+    foreach ($scores as $s) {
+        if (isset($s['id'])) {
+            $nachId[(int)$s['id']] = $s;
         }
     }
-    
-    if ($mime === 'image/jpeg' || $mime === 'image/jpg') {
-        imagejpeg($image, $imagePath, 92);
-    } elseif ($mime === 'image/png') {
-        imagepng($image, $imagePath);
-    } elseif ($mime === 'image/webp') {
-        imagewebp($image, $imagePath, 92);
+
+    $ergebnis = [];
+    foreach ($criteria as $k) {
+        $treffer = $nachId[$k['id']] ?? null;
+        $ergebnis[] = $k + [
+            'points'  => $treffer !== null ? (float)$treffer['points'] : null,
+            'comment' => $treffer !== null ? (string)$treffer['comment'] : '',
+            'percent' => $treffer !== null && $k['max_points'] > 0
+                ? (int)round((float)$treffer['points'] / $k['max_points'] * 100)
+                : 0,
+        ];
     }
-    
+
+    return $ergebnis;
+}
+
+/**
+ * Dreht ein Foto anhand seiner EXIF-Ausrichtung.
+ */
+function autoRotateImage(string $imagePath): void {
+    if (!is_file($imagePath) || !function_exists('exif_read_data')) {
+        return;
+    }
+
+    $exif = @exif_read_data($imagePath);
+    $ort = (int)($exif['Orientation'] ?? $exif['IFD0']['Orientation'] ?? 0);
+
+    if (!in_array($ort, [3, 6, 8], true)) {
+        return;
+    }
+
+    $mime = (string)@mime_content_type($imagePath);
+    $image = match ($mime) {
+        'image/jpeg' => @imagecreatefromjpeg($imagePath),
+        'image/png'  => @imagecreatefrompng($imagePath),
+        'image/webp' => @imagecreatefromwebp($imagePath),
+        default      => false,
+    };
+
+    if ($image === false) {
+        return;
+    }
+
+    $grad = match ($ort) {
+        3 => 180,
+        6 => 270,
+        8 => 90,
+    };
+
+    $gedreht = @imagerotate($image, $grad, 0);
+    if ($gedreht !== false) {
+        imagedestroy($image);
+        $image = $gedreht;
+    }
+
+    match ($mime) {
+        'image/jpeg' => imagejpeg($image, $imagePath, 92),
+        'image/png'  => imagepng($image, $imagePath),
+        'image/webp' => imagewebp($image, $imagePath, 92),
+        default      => null,
+    };
+
     imagedestroy($image);
 }

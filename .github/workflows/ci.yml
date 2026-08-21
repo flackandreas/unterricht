@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  qualitaet:
+    name: Tests & statische Analyse
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql, gd, exif, mbstring
+          coverage: none
+          tools: composer:v2
+
+      - name: Composer-Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('src/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Abhängigkeiten installieren
+        working-directory: src
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Syntaxprüfung
+        working-directory: src
+        run: |
+          find . -name '*.php' -not -path './vendor/*' -print0 \
+            | xargs -0 -n1 -P4 php -l > /dev/null
+
+      - name: Twig-Templates prüfen
+        working-directory: src
+        run: php tests/compile_templates.php
+
+      - name: Unit-Tests
+        working-directory: src
+        run: composer test
+
+      - name: Statische Analyse
+        working-directory: src
+        run: php -d memory_limit=512M vendor/bin/phpstan analyse --no-progress
+
+  migrationen:
+    name: Migrationen gegen leeres Schema
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: testpass
+          MARIADB_DATABASE: db_unterricht
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql, gd, exif, mbstring
+          tools: composer:v2
+
+      - name: Abhängigkeiten installieren
+        working-directory: src
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Basistabelle anlegen
+        run: |
+          mysql -h 127.0.0.1 -uroot -ptestpass db_unterricht <<'SQL'
+          CREATE TABLE teachers (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              kuerzel VARCHAR(20) NOT NULL UNIQUE,
+              name VARCHAR(150),
+              email VARCHAR(190),
+              passwort_hash VARCHAR(255) NOT NULL,
+              is_admin TINYINT(1) DEFAULT 0,
+              force_password_change TINYINT(1) DEFAULT 0,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+          SQL
+
+      - name: Migrationen einspielen
+        working-directory: src
+        env:
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_PASS: testpass
+          DB_NAME: db_unterricht
+        run: php bin/migrate.php
+
+      - name: Erneuter Lauf muss folgenlos bleiben
+        working-directory: src
+        env:
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_PASS: testpass
+          DB_NAME: db_unterricht
+        run: php bin/migrate.php --status

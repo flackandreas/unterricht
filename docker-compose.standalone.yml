@@ -1,0 +1,58 @@
+# Eigenständiger Betrieb mit eigener Datenbank.
+#
+# Die Datenbank liegt im Normalbetrieb im Schwester-Projekt und wird über das
+# externe Netzwerk erreicht - das README-Kommando "docker compose up" allein
+# genügte deshalb nicht. Diese Datei füllt die Lücke für Entwicklung und Test:
+#
+#   docker compose -f docker-compose.standalone.yml up -d --build
+
+services:
+  web:
+    build: .
+    ports:
+      - "8889:80"
+    volumes:
+      - ./src:/var/www/html
+    environment:
+      DB_HOST: db
+      DB_USER: root
+      DB_PASS: ${DB_PASS:-entwicklung}
+      DB_NAME: db_unterricht
+      APP_URL: http://localhost:8889
+      TZ: Europe/Berlin
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: php /var/www/html/bin/worker.php
+    volumes:
+      - ./src:/var/www/html
+    environment:
+      DB_HOST: db
+      DB_USER: root
+      DB_PASS: ${DB_PASS:-entwicklung}
+      DB_NAME: db_unterricht
+      TZ: Europe/Berlin
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_PASS:-entwicklung}
+      MARIADB_DATABASE: db_unterricht
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  db-data:

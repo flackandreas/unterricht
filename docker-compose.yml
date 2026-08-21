@@ -5,8 +5,34 @@ services:
       - "8889:80"
     volumes:
       - ./src:/var/www/html
+    environment:
+      # Werte aus src/.env haben Vorrang; hier stehen nur die Vorgaben.
+      TZ: Europe/Berlin
     networks:
       - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://localhost/login.php') ? 0 : 1);"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Arbeitet die KI-Auswertungen ab. Ohne diesen Dienst bleiben Abgaben in
+  # der Warteschlange stehen - sie gehen nicht verloren, werden aber auch
+  # nicht ausgewertet.
+  worker:
+    build: .
+    command: php /var/www/html/bin/worker.php
+    volumes:
+      - ./src:/var/www/html
+    environment:
+      TZ: Europe/Berlin
+    networks:
+      - app-network
+    depends_on:
+      - web
+    restart: unless-stopped
 
 networks:
   app-network:

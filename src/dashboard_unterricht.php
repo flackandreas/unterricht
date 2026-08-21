@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/request.php';
 require_once __DIR__ . '/includes/migrations.php';
 run_all_migrations();
 
@@ -47,7 +48,7 @@ echo $twig->render('dashboard.twig', [
     'current_date' => date('d.m.Y'),
     'all_classes' => $all_classes,
     'selected_class_ids' => $selected_class_ids,
-    'host_url' => (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]",
+    'host_url' => request_base_url(),
     'is_admin' => is_current_user_admin(),
     'is_logged_in' => true,
     'csrf_token' => $csrf_token,

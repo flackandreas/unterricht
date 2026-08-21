@@ -5,7 +5,10 @@
  */
 
 require_once __DIR__ . '/config/database.php';
-require_once __DIR__ . '/includes/auth.php'; // For CSRF protection if needed, though we'll keep it simple for students
+require_once __DIR__ . '/includes/auth.php'; // Sessions und CSRF-Token
+require_once __DIR__ . '/includes/error_page.php';
+require_once __DIR__ . '/includes/request.php';
+require_once __DIR__ . '/includes/rate_limit.php';
 
 $token = $_GET['t'] ?? '';
 $conn = db_connect();
@@ -16,7 +19,7 @@ $stmt->execute([$token]);
 $session = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$session) {
-    die("Ungültiger oder abgelaufener Feedback-Link. Bitte fragen Sie Ihre Lehrkraft.");
+    error_page("Feedback nicht verfügbar", "Der Link ist ungültig oder abgelaufen. Bitte frage deine Lehrkraft nach einem neuen.", 404, null);
 }
 
 // 2. Fetch questions for this session
@@ -31,6 +34,10 @@ $success = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_COOKIE[$voted_cookie])) {
         $error = "Du hast für diese Stunde bereits abgestimmt. Vielen Dank!";
+    } elseif (!rate_limit_allow($conn, 'feedback_vote', request_client_ip(), 30, 3600)) {
+        // Die Cookie-Sperre laesst sich umgehen; das Limit begrenzt den Schaden.
+        http_response_code(429);
+        $error = "Es wurden zu viele Rückmeldungen in kurzer Zeit gesendet. Bitte versuche es später erneut.";
     } else {
         $scores = $_POST['scores'] ?? [];
         $text_responses = $_POST['text_responses'] ?? [];

@@ -5,6 +5,8 @@
  */
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/error_page.php';
+require_once __DIR__ . '/includes/storage.php';
 
 require_admin();
 $conn = db_connect();
@@ -14,10 +16,10 @@ $year = (int)($_GET['year'] ?? date('Y', strtotime('-1 month'))); // Default to 
 
 if ($action === 'export') {
     $archive_name = "Jahresabschluss_Unterricht_" . $year . "_" . date('Ymd_His');
-    $tmp_dir = __DIR__ . "/public/uploads/" . $archive_name;
-    
-    if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0777, true);
-    if (!is_dir($tmp_dir . "/Feedback")) mkdir($tmp_dir . "/Feedback");
+    $tmp_dir = storage_dir('tmp') . "/" . $archive_name;
+
+    if (!is_dir($tmp_dir)) mkdir($tmp_dir, 0750, true);
+    if (!is_dir($tmp_dir . "/Feedback")) mkdir($tmp_dir . "/Feedback", 0750);
 
     // --- 1. Export Feedback ---
     $stmt = $conn->prepare("SELECT * FROM feedback_sessions WHERE YEAR(created_at) = ?");
@@ -31,7 +33,7 @@ if ($action === 'export') {
 
     // Create Archive using tar (fallback for ZipArchive)
     $archive_file = $archive_name . ".tar.gz";
-    $archive_path = __DIR__ . "/public/uploads/" . $archive_file;
+    $archive_path = storage_dir('tmp') . "/" . $archive_file;
     
     $cmd = "tar -czf " . escapeshellarg($archive_path) . " -C " . escapeshellarg($tmp_dir) . " .";
     shell_exec($cmd);
@@ -47,14 +49,14 @@ if ($action === 'export') {
         unlink($archive_path);
         exit;
     } else {
-        die("Fehler beim Erstellen des Archivs.");
+        error_page("Archiv konnte nicht erstellt werden", "Bitte versuchen Sie es erneut oder wenden Sie sich an die Administration.", 500, "/admin/system");
     }
 }
 
 if ($action === 'cleanup' && isset($_POST['confirm_year'])) {
     $csrf_token = $_POST['csrf_token'] ?? '';
     if (!verify_csrf_token($csrf_token)) {
-        die("CSRF Security Check failed.");
+        error_page("Sicherheitsprüfung fehlgeschlagen", "Die Seite war zu lange geöffnet. Bitte laden Sie sie neu.", 400, "/admin/system");
     }
     
     $cleanup_year = (int)$_POST['confirm_year'];

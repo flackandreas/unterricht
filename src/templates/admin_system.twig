@@ -1,6 +1,60 @@
 {% extends "base.twig" %}
 
 {% block content %}
+
+<div class="content-box" style="margin-bottom: 25px;">
+    <h2 style="margin-top: 0;">🤖 KI-Nutzung &amp; Warteschlange</h2>
+    <p style="color: var(--text-muted); font-size: 0.9em; margin-top: 0;">
+        Ohne diese Zahlen gibt es keine Kostentransparenz – der Verbrauch wurde vorher nirgends erfasst.
+    </p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 14px;">
+            <div style="font-size: 0.8em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Aufrufe ({{ ai_usage.days }} Tage)</div>
+            <div style="font-size: 1.6em; font-weight: 700;">{{ ai_usage.calls }}</div>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 14px;">
+            <div style="font-size: 0.8em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Tokens gesamt</div>
+            <div style="font-size: 1.6em; font-weight: 700;">{{ ai_usage.tokens|number_format(0, ',', '.') }}</div>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 14px;">
+            <div style="font-size: 0.8em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Warteschlange</div>
+            <div style="font-size: 1.6em; font-weight: 700;">{{ queue_counts.queued + queue_counts.running }}</div>
+        </div>
+        <div style="background: {{ queue_counts.failed > 0 ? '#fef2f2' : '#f8fafc' }}; border: 1px solid {{ queue_counts.failed > 0 ? '#fca5a5' : 'var(--border-color)' }}; border-radius: 8px; padding: 14px;">
+            <div style="font-size: 0.8em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Fehlgeschlagen</div>
+            <div style="font-size: 1.6em; font-weight: 700; color: {{ queue_counts.failed > 0 ? 'var(--danger-color)' : 'inherit' }};">{{ queue_counts.failed }}</div>
+        </div>
+    </div>
+
+    {% if ai_usage.features is not empty %}
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+            <thead>
+                <tr style="background: #f8fafc; text-align: left; border-bottom: 2px solid var(--border-color);">
+                    <th style="padding: 8px 12px;">Funktion</th>
+                    <th style="padding: 8px 12px; text-align: right;">Aufrufe</th>
+                    <th style="padding: 8px 12px; text-align: right;">Tokens</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in ai_usage.features %}
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 8px 12px;">
+                            {% if f.feature == 'evaluation' %}Hausaufgaben-Auswertung
+                            {% elseif f.feature == 'summary' %}Klassen-Zusammenfassung
+                            {% elseif f.feature == 'rephrase' %}Feedback umformulieren
+                            {% else %}{{ f.feature }}{% endif %}
+                        </td>
+                        <td style="padding: 8px 12px; text-align: right;">{{ f.calls }}</td>
+                        <td style="padding: 8px 12px; text-align: right;">{{ f.tokens|number_format(0, ',', '.') }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p style="color: var(--text-muted); margin: 0;">In den letzten {{ ai_usage.days }} Tagen wurden keine KI-Aufrufe erfasst.</p>
+    {% endif %}
+</div>
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <h2>Systemverwaltung & Datenpflege</h2>
     <a href="/admin/klassen" class="btn" style="border: 1px solid var(--border-color); color: var(--text-dark); padding: 8px 16px; border-radius: 6px; text-decoration: none;">&larr; Zurück</a>

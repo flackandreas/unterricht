@@ -1,0 +1,54 @@
+{#
+    Bewertungsraster bearbeiten.
+    Ohne Raster erfindet das Modell eine Gesamtpunktzahl aus dem Nichts; mit
+    Raster füllt es nachvollziehbare Teilkriterien aus.
+#}
+<div class="form-group" style="margin-bottom: 20px;">
+    <label style="display: block; margin-bottom: 8px; font-weight: 600;">📋 Bewertungsraster (optional, aber empfohlen)</label>
+    <p style="color: var(--text-muted); font-size: 0.85em; margin: 0 0 10px 0;">
+        Ohne Raster schätzt die KI eine Gesamtpunktzahl. Mit Raster bewertet sie jedes Kriterium einzeln –
+        das ist reproduzierbarer, für die Klasse transparenter und liefert dir auswertbare Daten pro Kompetenz.
+    </p>
+
+    <div id="criteria-list">
+        {% for k in criteria %}
+            <div class="criterion-row" style="display: grid; grid-template-columns: 2fr 3fr 90px 40px; gap: 8px; margin-bottom: 8px; align-items: start;">
+                <input type="text" name="criterion_label[]" value="{{ k.label }}" placeholder="z.B. Rechenweg" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <input type="text" name="criterion_description[]" value="{{ k.description }}" placeholder="Worauf achtet die KI? (optional)" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <input type="number" name="criterion_points[]" value="{{ k.max_points }}" min="1" max="100" title="Maximalpunkte" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <button type="button" class="criterion-remove" title="Entfernen" style="padding: 8px; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer; font-weight: 700;">×</button>
+            </div>
+        {% endfor %}
+    </div>
+
+    <button type="button" id="criterion-add" style="padding: 8px 14px; background: #f1f5f9; color: var(--text-dark); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 0.9em; font-weight: 600;">
+        + Kriterium hinzufügen
+    </button>
+</div>
+
+<script>
+    (function () {
+        var liste = document.getElementById('criteria-list');
+        var hinzu = document.getElementById('criterion-add');
+        if (!liste || !hinzu) return;
+
+        function zeile() {
+            var div = document.createElement('div');
+            div.className = 'criterion-row';
+            div.style.cssText = 'display: grid; grid-template-columns: 2fr 3fr 90px 40px; gap: 8px; margin-bottom: 8px; align-items: start;';
+            div.innerHTML =
+                '<input type="text" name="criterion_label[]" placeholder="z.B. Rechenweg" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">' +
+                '<input type="text" name="criterion_description[]" placeholder="Worauf achtet die KI? (optional)" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">' +
+                '<input type="number" name="criterion_points[]" value="10" min="1" max="100" title="Maximalpunkte" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">' +
+                '<button type="button" class="criterion-remove" title="Entfernen" style="padding: 8px; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer; font-weight: 700;">×</button>';
+            return div;
+        }
+
+        hinzu.addEventListener('click', function () { liste.appendChild(zeile()); });
+        liste.addEventListener('click', function (e) {
+            if (e.target.classList.contains('criterion-remove')) {
+                e.target.closest('.criterion-row').remove();
+            }
+        });
+    })();
+</script>

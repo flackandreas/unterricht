@@ -4,13 +4,28 @@
  * Session management and authentication checks.
  */
 
+require_once __DIR__ . '/request.php';
+
 session_name('unterricht_session');
 session_set_cookie_params([
+    'path'     => '/',
     'httponly' => true,
     'samesite' => 'Strict',
-    'secure'   => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on'
+    // request_is_https() beruecksichtigt X-Forwarded-Proto. Hinter dem
+    // Reverse Proxy war $_SERVER['HTTPS'] nicht gesetzt, das Session-Cookie
+    // wurde deshalb ohne Secure-Flag ausgeliefert.
+    'secure'   => request_is_https(),
 ]);
 session_start();
+
+// Sessions ohne Aktivitaet verfallen nach vier Stunden.
+$session_lifetime = 4 * 3600;
+if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > $session_lifetime) {
+    $_SESSION = [];
+    session_destroy();
+    session_start();
+}
+$_SESSION['last_activity'] = time();
 
 function is_logged_in() {
     return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
@@ -89,7 +104,7 @@ function get_csrf_token() {
  * Simple CSRF token validation
  */
 function verify_csrf_token($token) {
-    if (empty($_SESSION['csrf_token']) || empty($token)) {
+    if (empty($_SESSION['csrf_token']) || empty($token) || !is_string($token)) {
         return false;
     }
     return hash_equals($_SESSION['csrf_token'], $token);

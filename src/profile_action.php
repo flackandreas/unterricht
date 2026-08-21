@@ -43,7 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash_success'] = "Ihre Klassenauswahl wurde gespeichert.";
         } catch (Exception $e) {
             $conn->rollBack();
-            $_SESSION['flash_error'] = "Fehler beim Speichern: " . $e->getMessage();
+            error_log('Speichern fehlgeschlagen (Profil): ' . $e->getMessage());
+            $_SESSION['flash_error'] = "Die Daten konnten nicht gespeichert werden.";
         }
     }
 

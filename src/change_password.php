@@ -39,6 +39,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if ($user && password_verify($current_password, $user['passwort_hash'])) {
             $new_hash = password_hash($new_password, PASSWORD_DEFAULT);
+            // Nach einem Passwortwechsel eine neue Session-ID vergeben, damit
+            // eine eventuell mitgelesene alte ID wertlos wird.
+            session_regenerate_id(true);
             $update = $conn->prepare("UPDATE teachers SET passwort_hash = ?, force_password_change = 0 WHERE id = ?");
             if ($update->execute([$new_hash, $user_id])) {
                 $_SESSION['force_password_change'] = 0;

@@ -8,6 +8,9 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/twig_setup.php';
 
+use App\Homework\EvaluationQueue;
+use App\Support\UsageRecorder;
+
 require_admin();
 
 $conn = db_connect();
@@ -80,6 +83,8 @@ $flash_error = $_SESSION['flash_error'] ?? null;
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
 echo $twig->render('admin_system.twig', [
+    'ai_usage' => UsageRecorder::summary($conn, 30),
+    'queue_counts' => (new EvaluationQueue($conn))->counts(),
     'csrf_token' => $csrf_token,
     'flash_success' => $flash_success,
     'flash_error' => $flash_error,

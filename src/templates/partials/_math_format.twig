@@ -1,0 +1,26 @@
+{# Wandelt ^2, *, <= usw. in saubere Typografie. Für beide Schülerseiten. #}
+<script>
+    function formatMathText(str) {
+        if (!str) return '';
+        var hoch = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾','n':'ⁿ','x':'ˣ','a':'ᵃ','b':'ᵇ'};
+        var tief = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','a':'ₐ','e':'ₑ','i':'ᵢ','o':'ₒ','r':'ᵣ','u':'ᵤ','v':'ᵥ','x':'ₓ','n':'ₙ'};
+
+        return str
+            .replace(/\^([0-9nx+\-])\b/g, function (m, c) { return hoch[c] || m; })
+            .replace(/\^\(([^)]+)\)/g, function (m, p) {
+                return p.split('').map(function (c) { return hoch[c] || c; }).join('');
+            })
+            .replace(/_([0-9a-n])/g, function (m, c) { return tief[c] || m; })
+            .replace(/(\d|[a-zA-Z)])\s*\*\s*(\d|[a-zA-Z(])/g, '$1 · $2')
+            .replace(/!=/g, '≠')
+            .replace(/<=/g, '≤')
+            .replace(/>=/g, '≥')
+            .replace(/\bplusminus\b/gi, '±');
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.math-format').forEach(function (el) {
+            el.innerText = formatMathText(el.innerText);
+        });
+    });
+</script>

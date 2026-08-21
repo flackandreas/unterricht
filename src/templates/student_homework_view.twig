@@ -1,458 +1,282 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auswertung: {{ sub.assignment_title }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <style>
-        :root {
-            --primary-color: #2ecc71;
-            --primary-dark: #27ae60;
-            --bg-color: #f8fafc;
-            --text-dark: #2c3e50;
-            --border-color: #e2e8f0;
-            --danger-color: #e74c3c;
-        }
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-dark);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            min-height: 100vh;
-        }
-        .container {
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-            padding: 40px;
-            width: 100%;
-            max-width: 600px;
-            margin-top: 20px;
-            align-self: flex-start;
-        }
-        h1 { margin-top: 0; color: var(--primary-dark); font-size: 1.5rem; }
-        .meta { color: #64748b; font-size: 0.9rem; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); }
-        .section-title { font-size: 1.1rem; font-weight: 600; margin: 25px 0 10px 0; color: #1e293b; }
-        .feedback-box {
-            background: #f0fdf4;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid var(--primary-color);
-            white-space: pre-wrap;
-            line-height: 1.5;
-            color: #1e293b;
-            font-size: 0.95rem;
-        }
-        
-        /* Bounding Box / Tooltip Overlay styles */
-        .image-overlay-container {
-            position: relative;
-            display: inline-block;
-            width: 100%;
-            margin-top: 10px;
-        }
-        .error-box {
-            position: absolute;
-            border: 2px solid var(--danger-color);
-            background: rgba(231, 76, 60, 0.15);
-            cursor: help;
-            transition: background 0.2s, border-color 0.2s;
-            border-radius: 4px;
-        }
-        .error-box:hover {
-            background: rgba(231, 76, 60, 0.3);
-            border-color: #c0392b;
-            z-index: 10;
-        }
-        .error-box::after {
-            content: attr(data-description);
-            position: absolute;
-            bottom: 105%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #2c3e50;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            line-height: 1.4;
-            white-space: pre-wrap;
-            width: max-content;
-            max-width: 250px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.2s, visibility 0.2s;
-            pointer-events: none;
-            z-index: 100;
-            font-weight: normal;
-            font-family: 'Inter', sans-serif;
-            text-align: left;
-        }
-        .error-box:hover::after {
-            opacity: 1;
-            visibility: visible;
-        }
-    </style>
+    {% include 'partials/_student_head.twig' %}
+    <title>{{ sub.assignment_title }} - Deine Auswertung</title>
 </head>
 <body>
 
 <div class="container">
-    <h1>Hausaufgabe: {{ sub.assignment_title }}</h1>
+    <h1>{{ sub.assignment_title }}</h1>
     <div class="meta">
-        Klasse/Fach: <strong>{{ sub.klasse }} - {{ sub.fach }}</strong><br>
-        Schüler: <strong>{{ sub.student_name }}</strong><br>
-        Datum: <strong>{{ sub.created_at|date('d.m.Y H:i') }}</strong>
+        {{ sub.klasse }} &middot; {{ sub.fach }} &middot; Abgabe {{ sub.created_at|date('d.m.Y, H:i') }} Uhr
+        {% if sub.attempt_no > 1 %} &middot; {{ sub.attempt_no }}. Versuch{% endif %}
     </div>
 
-    <!-- Gamification Header Widget -->
-    <div class="gamification-header" style="display: flex; gap: 20px; align-items: center; background: linear-gradient(135deg, #1e293b, #0f172a); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.3); border: 1px solid rgba(255,255,255,0.05); overflow: hidden; position: relative;">
-        <!-- Background light effect -->
-        <div style="position: absolute; top: -50%; left: -20%; width: 60%; height: 200%; background: radial-gradient(circle, rgba(46, 204, 113, 0.15) 0%, transparent 60%); pointer-events: none;"></div>
-        
-        <!-- Avatar Container -->
-        <div style="position: relative; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px;">
-            <div style="position: relative;">
-                <img id="gamification-avatar" src="https://api.dicebear.com/7.x/adventurer/svg?seed=placeholder" alt="Avatar" style="width: 75px; height: 75px; border-radius: 50%; background: #f1f5f9; border: 3px solid var(--primary-color); display: block; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-                <div id="gamification-level-badge" style="position: absolute; bottom: -5px; right: -5px; background: var(--primary-color); color: white; font-weight: bold; font-size: 0.75em; padding: 4px 8px; border-radius: 10px; border: 2px solid #0f172a; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                    Lvl <span id="gamification-level-num">1</span>
-                </div>
-            </div>
-            <!-- Style Selector Dropdown -->
-            <select id="gamification-avatar-style" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 2px 6px; font-size: 0.7em; cursor: pointer; outline: none; max-width: 90px; text-align-last: center; font-weight: 500;">
-                <option value="adventurer" style="background: #1e293b; color: white;">Abenteuer</option>
-                <option value="bottts" style="background: #1e293b; color: white;">Roboter</option>
-                <option value="fun-emoji" style="background: #1e293b; color: white;">Emoji</option>
-                <option value="lorelei" style="background: #1e293b; color: white;">Comic</option>
-                <option value="pixel-art" style="background: #1e293b; color: white;">Pixel-Art</option>
-                <option value="croodles" style="background: #1e293b; color: white;">Monster</option>
-            </select>
-        </div>
+    {% include 'partials/_gamification.twig' %}
 
-        <!-- Progress and Details -->
-        <div style="flex-grow: 1; min-width: 0;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <span id="gamification-nickname" style="font-weight: 700; font-size: 1.1em; letter-spacing: 0.5px;">Student</span>
-                <span style="font-size: 0.85em; color: #94a3b8; font-weight: 600;"><span id="gamification-xp-current">0</span> / 500 XP</span>
-            </div>
-            
-            <!-- XP Progress Bar -->
-            <div style="width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden; margin-bottom: 10px;">
-                <div id="gamification-xp-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #2ecc71, #58d68d); transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 5px;"></div>
-            </div>
-            
-            <!-- Streak and Achievements -->
-            <div style="display: flex; gap: 15px; font-size: 0.85em; color: #cbd5e1;">
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <span style="font-size: 1.1em;">🔥</span>
-                    <strong style="color: #ff7675;"><span id="gamification-streak-num">1</span>er-Streak</strong>
-                </div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <span>🏆</span>
-                    <span>Level <span id="gamification-level-title">Novize</span></span>
+    {% include 'partials/_class_quest.twig' with {
+        'klasse': sub.klasse,
+        'fach': sub.fach
+    } %}
+
+    {# --- Zustand der Auswertung ------------------------------------- #}
+    {% if state == 'processing' %}
+        <div class="alert alert-info" id="processing-box">
+            <h3 style="margin-top: 0; color: #075985;">Abgabe eingegangen!</h3>
+            <p style="margin-bottom: 0;">Danke, {{ sub.student_name }}. Deine Hausaufgabe wird gerade ausgewertet –
+            das dauert meist weniger als eine Minute.</p>
+            <div class="loading" style="margin-top: 15px;">
+                <div class="spinner"></div>
+                <div style="color: #075985; font-weight: 500; font-size: 0.9em;">
+                    Die Seite aktualisiert sich von selbst. Du kannst sie auch schließen und später
+                    über diesen Link zurückkommen.
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Enhanced Class Quest Widget -->
-    {% if expected_submissions > 0 %}
-        {% set percent = (actual_submissions / expected_submissions * 100)|round(0) %}
-        {% if percent > 100 %}{% set percent = 100 %}{% endif %}
-        
-        {% set badge_icon = '🛡️' %}
-        {% set badge_status = 'Quest gestartet' %}
-        {% if percent >= 100 %}
-            {% set badge_icon = '🏆' %}
-            {% set badge_status = 'Quest Meisterhaft Vollendet!' %}
-        {% elseif percent >= 50 %}
-            {% set badge_icon = '🔥' %}
-            {% set badge_status = 'Endspurt (Gemeinsam stark!)' %}
-        {% elseif percent >= 25 %}
-            {% set badge_icon = '⚔️' %}
-            {% set badge_status = 'Auf dem Vormarsch' %}
-        {% endif %}
-
-        <div class="class-quest-widget" style="background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%); border: 1.5px solid {% if percent >= 100 %}#10b981{% else %}#cbd5e1{% endif %}; padding: 22px; border-radius: 16px; margin-bottom: 25px; box-shadow: 0 8px 20px rgba(0,0,0,0.04); position: relative; overflow: hidden;">
-            {% if percent >= 100 %}
-                <div style="position: absolute; top: 0; right: 0; background: #10b981; color: white; padding: 4px 14px; font-size: 0.75em; font-weight: 700; border-bottom-left-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
-                    🎉 Abgeschlossen
-                </div>
-            {% endif %}
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-                <span style="font-weight: 700; font-size: 1.05em; display: flex; align-items: center; gap: 8px; color: var(--text-dark);">
-                    <span style="font-size: 1.3em;">{{ badge_icon }}</span>
-                    <span>Klassen-Quest: {{ sub.klasse }} ({{ sub.fach }})</span>
-                </span>
-                <span style="font-size: 0.9em; font-weight: 700; color: #1e293b; background: white; padding: 5px 12px; border-radius: 20px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
-                    {{ actual_submissions }} / {{ expected_submissions }} Abgaben ({{ percent }}%)
-                </span>
-            </div>
-            
-            <!-- Progress Bar with gradient -->
-            <div style="width: 100%; height: 16px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 12px; padding: 2px; box-sizing: border-box; position: relative;">
-                <div style="width: {{ percent }}%; height: 100%; background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #10b981 100%); border-radius: 8px; transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);"></div>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                <p style="margin: 0; font-size: 0.9em; color: #475569; line-height: 1.4;">
-                    <strong style="color: {% if percent >= 100 %}#059669{% else %}#1e293b{% endif %};">{{ badge_status }}</strong> – 
-                    {% if percent >= 100 %}
-                        Hervorragende Teamarbeit der ganzen Klasse!
-                    {% else %}
-                        Noch <strong>{{ expected_submissions - actual_submissions }} Abgaben</strong> nötig!
-                    {% endif %}
-                </p>
-                
-                {% if quest_reward %}
-                    <div style="margin-top: 8px; width: 100%; padding: 10px 14px; background: {% if percent >= 100 %}#ecfdf5{% else %}#fff7ed{% endif %}; border: 1px dashed {% if percent >= 100 %}#10b981{% else %}#f97316{% endif %}; border-radius: 10px; display: flex; align-items: center; gap: 10px; font-size: 0.9em; color: {% if percent >= 100 %}#065f46{% else %}#9a3412{% endif %};">
-                        <span style="font-size: 1.2em;">{% if percent >= 100 %}🎁{% else %}🔒{% endif %}</span>
-                        <span>
-                            <strong>{% if percent >= 100 %}Freigeschaltete Klassen-Belohnung:{% else %}Freischaltbare Belohnung:{% endif %}</strong>
-                            {{ quest_reward }}
-                        </span>
-                    </div>
-                {% endif %}
-            </div>
+    {% elseif state == 'awaiting_review' %}
+        <div class="alert alert-info">
+            <h3 style="margin-top: 0; color: #075985;">Abgabe eingegangen!</h3>
+            <p style="margin-bottom: 0;">Danke, {{ sub.student_name }}. Deine Lehrkraft schaut sich die Auswertung
+            gerade an. Sobald sie freigegeben ist, erscheint sie hier.</p>
         </div>
 
-        {% if percent >= 100 %}
-            <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    setTimeout(function() {
-                        if (typeof confetti === 'function') {
-                            confetti({
-                                particleCount: 75,
-                                spread: 80,
-                                origin: { y: 0.6 }
-                            });
-                        }
-                    }, 400);
-                });
-            </script>
-        {% endif %}
+    {% elseif state == 'failed' %}
+        <div class="alert alert-error">
+            <h3 style="margin-top: 0;">Auswertung nicht möglich</h3>
+            <p style="margin-bottom: 0;">Deine Abgabe ist gespeichert und deine Lehrkraft sieht sie.
+            Die automatische Auswertung hat aber nicht geklappt – das liegt nicht an dir.</p>
+        </div>
+
+    {% else %}
+        <div class="alert alert-success" style="margin-bottom: 25px;">
+            <h3 style="margin-top: 0; color: #166534;">Auswertung fertig!</h3>
+            <p style="margin-bottom: 0;">Hier ist dein Feedback, {{ sub.student_name }}.</p>
+        </div>
     {% endif %}
 
-    {% if sub.status == 'evaluated' %}
-        <div class="section-title">Feedback für dich:</div>
-        <div class="feedback-box">{{ sub.student_feedback }}</div>
-        
-        {% if sub.score is not null %}
-            <div style="text-align: right; margin-top: 15px; font-weight: bold; font-size: 1.25em; color: var(--primary-dark);">
+    {# --- Ergebnis-Link ---------------------------------------------- #}
+    <div style="margin-bottom: 25px; padding: 12px; background: #f8fafc; border-radius: 6px; font-size: 0.85em; border: 1px dashed var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+        <span style="word-break: break-all; color: #475569;">
+            <strong>Dein Ergebnis-Link:</strong><br>
+            <a id="view-link" href="{{ host_url }}/student_homework.php?view={{ sub.token }}" style="text-decoration: underline; color: var(--primary-dark); font-weight: 600;">
+                {{ host_url }}/student_homework.php?view={{ sub.token }}
+            </a>
+        </span>
+        <button type="button" id="copy-link-btn" style="width: auto; padding: 6px 12px; font-size: 0.85em; flex-shrink: 0;">Kopieren</button>
+    </div>
+
+    {% if state == 'ready' %}
+        {# --- Feedback ------------------------------------------------ #}
+        <div style="margin-bottom: 25px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 10px;">
+                <h4 style="margin: 0;">Feedback für dich:</h4>
+
+                <div class="level-switcher" style="display: inline-flex; background: #e2e8f0; padding: 3px; border-radius: 8px; font-size: 0.85em; font-weight: 600;">
+                    <button type="button" class="btn-level active" data-level="appropriate" style="width: auto; border: none; background: white; color: #1e293b; padding: 5px 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">🔵 Standard</button>
+                    <button type="button" class="btn-level" data-level="simple" style="width: auto; border: none; background: transparent; color: #64748b; padding: 5px 12px; border-radius: 6px;">🟢 Sehr einfach</button>
+                    <button type="button" class="btn-level" data-level="complex" style="width: auto; border: none; background: transparent; color: #64748b; padding: 5px 12px; border-radius: 6px;">🟣 Detailliert</button>
+                </div>
+            </div>
+
+            <div id="student-feedback-box" class="math-format" style="background: #f0fdf4; padding: 20px; border-radius: 8px; border-left: 4px solid var(--primary-color); white-space: pre-wrap; line-height: 1.5; color: #1e293b; transition: opacity 0.2s;">{{ sub.student_feedback }}</div>
+        </div>
+
+        {% if sub.show_score and sub.score is not null %}
+            <div style="text-align: right; margin-bottom: 25px; font-weight: bold; font-size: 1.2em; color: var(--primary-dark);">
                 Erreichte Punkte: {{ sub.score }} / 100
             </div>
         {% endif %}
 
-        {% if sub.image_path %}
-            <div class="section-title">Markierte Fehler im Bild (Fahre mit der Maus über die roten Boxen):</div>
-            <div class="image-overlay-container">
-                <img src="/{{ sub.image_path }}" style="width: 100%; display: block; border-radius: 8px; border: 1px solid var(--border-color);" alt="Hausaufgabe">
-                
-                {% if sub.error_markers is not empty %}
-                    {% set markers = sub.error_markers|json_decode %}
-                    {% for marker in markers %}
-                        {% set ymin = marker.box_2d[0] / 10 %}
-                        {% set xmin = marker.box_2d[1] / 10 %}
-                        {% set ymax = marker.box_2d[2] / 10 %}
-                        {% set xmax = marker.box_2d[3] / 10 %}
-                        {% set height = ymax - ymin %}
-                        {% set width = xmax - xmin %}
-                        <div class="error-box" 
-                             style="position: absolute; top: {{ ymin }}%; left: {{ xmin }}%; width: {{ width }}%; height: {{ height }}%;"
-                             data-description="{{ marker.description }}">
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            </div>
+        {% include 'partials/_criteria.twig' %}
+
+        {% if sub.image_deleted_at is null %}
+            {% include 'partials/_error_overlay.twig' with {
+                'image_url': '/media.php?s=' ~ sub.token
+            } %}
         {% endif %}
-    {% else %}
-        <div style="text-align: center; padding: 40px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; color: #b45309;">
-            <div style="font-size: 2em; margin-bottom: 10px;">⏳</div>
-            <h3 style="margin: 0 0 10px 0;">Auswertung ausstehend</h3>
-            <p style="margin: 0; font-size: 0.95em;">Deine Hausaufgabe wurde hochgeladen, aber die Bewertung läuft noch. Bitte lade diese Seite in ein paar Sekunden neu.</p>
+
+        {# --- Rückkanal und Wiedervorlage ----------------------------- #}
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+            {% if sub.allow_resubmission and sub.attempt_no < sub.max_submissions_per_student %}
+                <a href="/student_homework.php?t={{ sub.assignment_token }}" style="flex: 1 1 200px; text-align: center; text-decoration: none; padding: 12px; background: var(--primary-color); color: white; border-radius: 6px; font-weight: 600; font-size: 0.95em;">
+                    ✏️ Verbessern &amp; neu abgeben
+                    <span style="display: block; font-weight: 400; font-size: 0.8em; opacity: 0.9;">
+                        Noch {{ sub.max_submissions_per_student - sub.attempt_no }} Versuch(e)
+                    </span>
+                </a>
+            {% endif %}
+
+            <button type="button" id="report-btn" style="flex: 1 1 200px; width: auto; background: #f1f5f9; color: #475569; border: 1px solid var(--border-color); font-size: 0.95em;">
+                🤔 Feedback stimmt nicht?
+            </button>
+        </div>
+    {% endif %}
+
+    {% if leaderboard|length > 1 %}
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+            <h4 style="margin: 0 0 12px 0; font-size: 1em;">🏅 Klasse {{ sub.klasse }}</h4>
+            {% for eintrag in leaderboard %}
+                <div style="display: flex; justify-content: space-between; padding: 6px 10px; border-radius: 6px; font-size: 0.88em; background: {{ loop.index is odd ? '#f8fafc' : 'transparent' }};">
+                    <span>{{ loop.index }}. {{ eintrag.display_name }}</span>
+                    <span style="color: #64748b;">Lvl {{ eintrag.level }} &middot; {{ eintrag.xp }} XP</span>
+                </div>
+            {% endfor %}
         </div>
     {% endif %}
 </div>
 
-<!-- Gamification Engine -->
+{% include 'partials/_math_format.twig' %}
+
 <script>
-    window.subToken = "{{ sub.token|default('') }}";
-    window.subScore = {{ sub.score|default('null') }};
-    window.subStatus = "{{ sub.status }}";
-    window.studentName = "{{ sub.student_name|default('') }}";
+    var SUB_TOKEN = {{ sub.token|json_encode|raw }};
+    var CSRF_TOKEN = {{ csrf_token|json_encode|raw }};
+    var STATE = {{ state|json_encode|raw }};
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const state = {
-            xp: parseInt(localStorage.getItem('student_xp') || '0'),
-            level: parseInt(localStorage.getItem('student_level') || '1'),
-            streak: parseInt(localStorage.getItem('student_streak') || '1'),
-            last_sub_date: localStorage.getItem('student_last_sub_date') || null,
-            nickname: localStorage.getItem('student_nickname') || null,
-            avatar_seed: localStorage.getItem('student_avatar_seed') || null,
-            style: localStorage.getItem('student_avatar_style') || 'adventurer',
-            rewarded_subs: JSON.parse(localStorage.getItem('student_rewarded_subs') || '[]')
-        };
-
-        // Update Nickname and Avatar Seed with entered name if available
-        if (window.studentName && window.studentName !== '') {
-            state.nickname = window.studentName;
-            localStorage.setItem('student_nickname', state.nickname);
-            state.avatar_seed = window.studentName;
-            localStorage.setItem('student_avatar_seed', state.avatar_seed);
-        } else if (!state.nickname) {
-            const prefixes = ["Cleverer", "Flinker", "Neugieriger", "Schlauer", "Fleißiger", "Kreativer", "Schneller"];
-            const suffixes = ["Fuchs", "Wolf", "Koala", "Biber", "Igel", "Löwe", "Falke"];
-            const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-            const randomSuffix = suffixes[Math.floor(Math.random() * suffixes.length)];
-            const randNum = Math.floor(Math.random() * 90) + 10;
-            state.nickname = `${randomPrefix}_${randomSuffix}_${randNum}`;
-            localStorage.setItem('student_nickname', state.nickname);
-        }
-
-        // Initialize Avatar
-        if (!state.avatar_seed) {
-            state.avatar_seed = Math.random().toString(36).substring(2, 10);
-            localStorage.setItem('student_avatar_seed', state.avatar_seed);
-        }
-
-        // Initialize Avatar Style Selection Dropdown
-        const styleSelect = document.getElementById('gamification-avatar-style');
-        if (styleSelect) {
-            styleSelect.value = state.style;
-            styleSelect.addEventListener('change', function() {
-                state.style = this.value;
-                localStorage.setItem('student_avatar_style', state.style);
-                updateUI();
-            });
-        }
-
-        // Check for new XP rewards
-        if (window.subToken && window.subStatus === 'evaluated' && !state.rewarded_subs.includes(window.subToken)) {
-            let earnedXp = 100; // Base XP for submission
-            let scoreXp = 0;
-            if (window.subScore !== null && !isNaN(window.subScore)) {
-                scoreXp = Math.round(window.subScore * 2);
-                earnedXp += scoreXp;
-            }
-
-            // Streak calculations
-            const now = new Date();
-            let streakBonus = 0;
-            if (state.last_sub_date) {
-                const lastDate = new Date(state.last_sub_date);
-                const diffTime = Math.abs(now - lastDate);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                if (diffDays >= 1 && diffDays <= 7) {
-                    state.streak += 1;
-                    streakBonus = state.streak * 20;
-                    earnedXp += streakBonus;
-                } else if (diffDays > 7) {
-                    state.streak = 1;
-                }
-            } else {
-                state.streak = 1;
-            }
-            state.last_sub_date = now.toISOString();
-
-            // Leveling check
-            const oldLevel = state.level;
-            state.xp += earnedXp;
-            state.level = Math.floor(state.xp / 500) + 1;
-
-            state.rewarded_subs.push(window.subToken);
-
-            // Save state
-            localStorage.setItem('student_xp', state.xp.toString());
-            localStorage.setItem('student_level', state.level.toString());
-            localStorage.setItem('student_streak', state.streak.toString());
-            localStorage.setItem('student_last_sub_date', state.last_sub_date);
-            localStorage.setItem('student_rewarded_subs', JSON.stringify(state.rewarded_subs));
-
-            // Render details
-            let alertHtml = `<div style="text-align: left; font-size: 0.95em; line-height: 1.5; color: #1e293b;">
-                <p>Du hast <strong>+${earnedXp} XP</strong> erhalten:</p>
-                <ul style="margin: 5px 0; padding-left: 20px;">
-                    <li>+100 XP (Standardabgabe)</li>`;
-            if (scoreXp > 0) alertHtml += `<li>+${scoreXp} XP (Punkte-Bonus: ${window.subScore}/100)</li>`;
-            if (streakBonus > 0) alertHtml += `<li>+${streakBonus} XP (${state.streak}er-Streak-Bonus! 🔥)</li>`;
-            alertHtml += `</ul></div>`;
-
-            setTimeout(() => {
-                if (state.level > oldLevel) {
-                    // Confetti effect
-                    if (typeof confetti === 'function') {
-                        confetti({
-                            particleCount: 150,
-                            spread: 80,
-                            origin: { y: 0.6 }
-                        });
-                    }
-                    Swal.fire({
-                        title: 'LEVEL UP! 🎉',
-                        html: `<h3 style="color: var(--primary-dark); margin: 5px 0 15px 0;">Level ${state.level} erreicht!</h3>` + alertHtml,
-                        icon: 'success',
-                        confirmButtonText: 'Genial!'
-                    });
-                } else {
-                    Swal.fire({
-                        title: 'XP gesammelt! 🌟',
-                        html: alertHtml,
-                        icon: 'success',
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 5000
-                    });
-                }
-            }, 500);
-        }
-
-        // Render UI
-        function updateUI() {
-            const nicknameElem = document.getElementById('gamification-nickname');
-            if (nicknameElem) nicknameElem.innerText = state.nickname;
-
-            const currentXpElem = document.getElementById('gamification-xp-current');
-            if (currentXpElem) currentXpElem.innerText = state.xp % 500;
-
-            const levelNumElem = document.getElementById('gamification-level-num');
-            if (levelNumElem) levelNumElem.innerText = state.level;
-
-            const streakNumElem = document.getElementById('gamification-streak-num');
-            if (streakNumElem) streakNumElem.innerText = state.streak;
-
-            const xpBarElem = document.getElementById('gamification-xp-bar');
-            if (xpBarElem) {
-                const percent = ((state.xp % 500) / 500) * 100;
-                xpBarElem.style.width = percent + '%';
-            }
-
-            const avatarElem = document.getElementById('gamification-avatar');
-            if (avatarElem && state.avatar_seed) {
-                avatarElem.src = `https://api.dicebear.com/7.x/${state.style}/svg?seed=${state.avatar_seed}`;
-            }
-
-            const levelTitleElem = document.getElementById('gamification-level-title');
-            if (levelTitleElem) {
-                let title = "Novize";
-                if (state.level >= 3) title = "Lehrling";
-                if (state.level >= 5) title = "Forscher";
-                if (state.level >= 7) title = "Experte";
-                if (state.level >= 9) title = "Meister";
-                if (state.level >= 11) title = "Großmeister";
-                levelTitleElem.innerText = title;
-            }
-        }
-
-        updateUI();
+    // --- Ergebnis-Link kopieren -------------------------------------
+    document.getElementById('copy-link-btn').addEventListener('click', function () {
+        var link = document.getElementById('view-link').href;
+        navigator.clipboard.writeText(link).then(function () {
+            Swal.fire({ icon: 'success', title: 'Kopiert!', timer: 1400, showConfirmButton: false });
+        }).catch(function () {
+            Swal.fire({ icon: 'info', title: 'Link', text: link });
+        });
     });
+
+    // --- Auf das Ergebnis warten ------------------------------------
+    // Ersetzt den früheren 60-Sekunden-Spinner im Abgabe-Request.
+    if (STATE === 'processing') {
+        var versuche = 0;
+        var timer = setInterval(function () {
+            versuche++;
+            if (versuche > 60) { clearInterval(timer); return; }
+
+            fetch('/student_homework.php?action=status&t=' + encodeURIComponent(SUB_TOKEN))
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.state && d.state !== 'processing') {
+                        clearInterval(timer);
+                        window.location.reload();
+                    }
+                })
+                .catch(function () { /* Netzwerkaussetzer: beim nächsten Takt erneut */ });
+        }, 3000);
+    }
+
+    // --- Sprachniveau umschalten ------------------------------------
+    (function () {
+        var box = document.getElementById('student-feedback-box');
+        var btns = document.querySelectorAll('.btn-level');
+        if (!box || !btns.length) return;
+
+        var cache = { appropriate: box.innerText };
+
+        btns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var level = this.getAttribute('data-level');
+
+                btns.forEach(function (b) {
+                    b.style.background = 'transparent';
+                    b.style.color = '#64748b';
+                    b.style.boxShadow = 'none';
+                    b.classList.remove('active');
+                });
+                this.style.background = 'white';
+                this.style.color = '#1e293b';
+                this.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                this.classList.add('active');
+
+                if (cache[level]) {
+                    box.innerText = formatMathText(cache[level]);
+                    return;
+                }
+
+                box.style.opacity = '0.4';
+                var original = box.innerText;
+
+                var daten = new FormData();
+                daten.append('action', 'rephrase_level');
+                daten.append('csrf_token', CSRF_TOKEN);
+                daten.append('submission_token', SUB_TOKEN);
+                daten.append('target_level', level);
+
+                fetch('/student_homework.php', { method: 'POST', body: daten })
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        box.style.opacity = '1';
+                        if (d.success && d.rephrased_feedback) {
+                            cache[level] = d.rephrased_feedback;
+                            box.innerText = formatMathText(d.rephrased_feedback);
+                        } else {
+                            box.innerText = original;
+                            Swal.fire({ icon: 'info', title: 'Gerade nicht möglich', text: d.error || 'Bitte später erneut versuchen.' });
+                        }
+                    })
+                    .catch(function () {
+                        box.style.opacity = '1';
+                        box.innerText = original;
+                    });
+            });
+        });
+    })();
+
+    // --- Rückmeldung zum Feedback -----------------------------------
+    (function () {
+        var btn = document.getElementById('report-btn');
+        if (!btn) return;
+
+        btn.addEventListener('click', function () {
+            Swal.fire({
+                title: 'Was stimmt nicht?',
+                input: 'select',
+                inputOptions: {
+                    wrong: 'Die Korrektur ist fachlich falsch',
+                    unclear: 'Ich verstehe das Feedback nicht',
+                    unfair: 'Die Punktzahl passt nicht',
+                    other: 'Etwas anderes'
+                },
+                inputPlaceholder: 'Bitte auswählen',
+                showCancelButton: true,
+                confirmButtonText: 'Weiter',
+                cancelButtonText: 'Abbrechen',
+                inputValidator: function (v) { return v ? null : 'Bitte wähle etwas aus.'; }
+            }).then(function (auswahl) {
+                if (!auswahl.isConfirmed) return;
+
+                return Swal.fire({
+                    title: 'Magst du es kurz erklären?',
+                    input: 'textarea',
+                    inputPlaceholder: 'Optional – hilft deiner Lehrkraft beim Nachschauen.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Absenden',
+                    cancelButtonText: 'Abbrechen'
+                }).then(function (text) {
+                    if (!text.isConfirmed) return;
+
+                    var daten = new FormData();
+                    daten.append('action', 'report_feedback');
+                    daten.append('csrf_token', CSRF_TOKEN);
+                    daten.append('submission_token', SUB_TOKEN);
+                    daten.append('reason', auswahl.value);
+                    daten.append('message', text.value || '');
+
+                    return fetch('/student_homework.php', { method: 'POST', body: daten })
+                        .then(function (r) { return r.json(); })
+                        .then(function (d) {
+                            Swal.fire({
+                                icon: d.success ? 'success' : 'info',
+                                title: d.success ? 'Danke!' : 'Hinweis',
+                                text: d.success
+                                    ? 'Deine Lehrkraft schaut sich das an.'
+                                    : (d.error || 'Bitte später erneut versuchen.')
+                            });
+                        });
+                });
+            });
+        });
+    })();
 </script>
+
 </body>
 </html>

@@ -1,0 +1,11 @@
+parameters:
+    level: 6
+    paths:
+        - app
+        - bin
+    excludePaths:
+        - vendor
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        # Prozedurale Helfer aus includes/, die per require_once geladen werden.
+        - '#Function (storage_resolve|storage_delete|storage_store_upload|storage_dir|storage_root|storage_mime_type|verify_csrf_token|get_csrf_token|is_logged_in|get_current_user_id|db_connect|rate_limit_allow|request_client_ip|request_base_url) not found#'

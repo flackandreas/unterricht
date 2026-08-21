@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/request.php';
 require_once __DIR__ . '/includes/twig_setup.php';
 
 require_login();
@@ -85,7 +86,7 @@ echo $twig->render('teacher_feedback.twig', [
     'all_classes' => $all_classes,
     'selected_class_ids' => $selected_class_ids,
     'templates' => $templates,
-    'host_url' => (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]",
+    'host_url' => request_base_url(),
     'current_user_name' => get_current_user_name(),
     'is_admin' => is_current_user_admin(),
     'is_logged_in' => true,

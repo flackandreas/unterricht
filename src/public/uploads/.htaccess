@@ -1,9 +1,20 @@
-# Disable PHP execution inside the uploads folder for security
-<FilesMatch "\.(php|phtml|php3|php4|php5|php7|php8|phps)$">
+# Hochgeladene Dateien werden ausschliesslich ueber /media.php ausgeliefert.
+# Dort wird geprueft, wer eine Datei sehen darf. Der direkte Zugriff ist
+# gesperrt - vorher waren Hausaufgabenfotos und Musterloesungen ueber ihren
+# erratbaren Dateinamen fuer jeden abrufbar.
+#
+# Dieses Verzeichnis enthaelt nur noch Altbestaende; neue Dateien landen in
+# src/storage/uploads/. bin/migrate_uploads.php verschiebt die alten.
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
     Order Deny,Allow
     Deny from all
-</FilesMatch>
+</IfModule>
 
+# Zusaetzlich: keinerlei PHP-Ausfuehrung in diesem Verzeichnis.
 RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8
 RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8
 

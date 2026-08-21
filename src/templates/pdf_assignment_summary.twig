@@ -1,0 +1,60 @@
+{# Unterrichtsvorbereitung als PDF - gerendert mit dompdf. #}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'DejaVu Sans', sans-serif; font-size: 11pt; color: #1e293b; line-height: 1.5; }
+        h1 { font-size: 17pt; color: #27ae60; margin: 0 0 4px 0; }
+        h2 { font-size: 12pt; margin: 22px 0 8px 0; padding-bottom: 4px; border-bottom: 1px solid #cbd5e1; }
+        .meta { color: #64748b; font-size: 9.5pt; margin-bottom: 18px; }
+        .kennzahlen td { padding: 6px 10px; border: 1px solid #e2e8f0; font-size: 10pt; }
+        .kennzahlen th { padding: 6px 10px; border: 1px solid #e2e8f0; background: #f8fafc; text-align: left; font-size: 10pt; }
+        .block { background: #f8fafc; border-left: 3px solid #27ae60; padding: 10px 14px; white-space: pre-wrap; font-size: 10.5pt; }
+        .block.fehler { border-left-color: #e74c3c; background: #fef2f2; }
+        .fuss { margin-top: 30px; padding-top: 8px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 8.5pt; }
+    </style>
+</head>
+<body>
+    <h1>{{ assignment.title }}</h1>
+    <div class="meta">
+        {{ assignment.klasse }} &middot; {{ assignment.fach }} &middot; erstellt am {{ assignment.created_at|date('d.m.Y') }}
+    </div>
+
+    <h2>Aufgabenstellung</h2>
+    <div class="block">{{ assignment.description }}</div>
+
+    <h2>Kennzahlen</h2>
+    <table class="kennzahlen" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <th>Abgaben</th><td>{{ anzahl }}{% if assignment.expected_submissions > 0 %} von {{ assignment.expected_submissions }} erwartet{% endif %}</td>
+            <th>Bewertet</th><td>{{ bewertet }}</td>
+        </tr>
+        <tr>
+            <th>Durchschnitt</th><td>{{ durchschnitt is null ? '–' : durchschnitt ~ ' / 100' }}</td>
+            <th>Spanne</th><td>{{ schwaechstes is null ? '–' : schwaechstes ~ ' bis ' ~ bestes }}</td>
+        </tr>
+    </table>
+
+    {% if criteria is not empty %}
+        <h2>Bewertungsraster</h2>
+        <table class="kennzahlen" style="width: 100%; border-collapse: collapse;">
+            <tr><th>Kriterium</th><th style="width: 90px;">Max. Punkte</th></tr>
+            {% for k in criteria %}
+                <tr><td>{{ k.label }}{% if k.description %}<br><span style="color: #94a3b8; font-size: 9pt;">{{ k.description }}</span>{% endif %}</td><td>{{ k.max_points }}</td></tr>
+            {% endfor %}
+        </table>
+    {% endif %}
+
+    <h2>Häufigste Fehler in dieser Klasse</h2>
+    <div class="block fehler">{{ assignment.summary_common_errors|default('Noch keine Auswertung vorhanden.') }}</div>
+
+    <h2>Vorschlag für die Besprechung</h2>
+    <div class="block">{{ assignment.summary_solution_approach|default('Noch keine Auswertung vorhanden.') }}</div>
+
+    <div class="fuss">
+        Erstellt am {{ erstellt_am }} Uhr &middot; KI-gestützte Auswertung, fachlich zu prüfen.
+        Enthält keine personenbezogenen Daten von Schülerinnen und Schülern.
+    </div>
+</body>
+</html>

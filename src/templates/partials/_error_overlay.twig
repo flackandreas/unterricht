@@ -1,0 +1,64 @@
+{#
+    Foto mit den markierten Fehlerstellen.
+    Erwartet: image_url, markers
+#}
+<div style="margin-top: 30px; margin-bottom: 25px;">
+    <h4 style="margin-top: 0; margin-bottom: 12px; color: var(--text-dark); font-size: 1.1em; display: flex; align-items: center; gap: 8px;">
+        <span>📍</span> Markierte Stellen &amp; Fehler im Bild:
+    </h4>
+
+    <div class="image-overlay-container" style="margin-bottom: 20px;">
+        <img src="{{ image_url }}" style="width: 100%; display: block; border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.08);" alt="Deine Hausaufgabe">
+
+        {% for marker in markers %}
+            {% set ymin = marker.box_2d[0] / 10 %}
+            {% set xmin = marker.box_2d[1] / 10 %}
+            {% set ymax = marker.box_2d[2] / 10 %}
+            {% set xmax = marker.box_2d[3] / 10 %}
+            <div class="error-box"
+                 id="error-box-{{ loop.index }}"
+                 style="top: {{ ymin }}%; left: {{ xmin }}%; width: {{ xmax - xmin }}%; height: {{ ymax - ymin }}%;"
+                 data-description="{{ marker.description }}"
+                 data-index="{{ loop.index }}">
+                <div class="error-pin">{{ loop.index }}</div>
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if markers is not empty %}
+        <div style="margin-top: 20px;">
+            <h5 style="margin-bottom: 12px; font-size: 0.95em; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Fehler-Details &amp; Erklärungen</h5>
+            {% for marker in markers %}
+                <div class="error-list-item" id="error-item-{{ loop.index }}" data-index="{{ loop.index }}">
+                    <div style="display: flex; gap: 12px; align-items: flex-start;">
+                        <span style="background: #e74c3c; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85rem; flex-shrink: 0; margin-top: 2px;">{{ loop.index }}</span>
+                        <div>
+                            {% if marker.step_text %}
+                                <strong class="math-format" style="color: #991b1b; display: block; margin-bottom: 4px; font-size: 0.95em;">{{ marker.step_text }}</strong>
+                            {% endif %}
+                            <span class="math-format" style="color: #334155; font-size: 0.9em; line-height: 1.4; display: block;">{{ marker.description }}</span>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    // Box und Listeneintrag hervorheben - ohne inline-Handler im Markup.
+    (function () {
+        function setze(index, an) {
+            var box = document.getElementById('error-box-' + index);
+            var item = document.getElementById('error-item-' + index);
+            if (box) box.classList.toggle('highlight', an);
+            if (item) item.classList.toggle('active', an);
+        }
+
+        document.querySelectorAll('.error-box, .error-list-item').forEach(function (el) {
+            var index = el.dataset.index;
+            el.addEventListener('mouseenter', function () { setze(index, true); });
+            el.addEventListener('mouseleave', function () { setze(index, false); });
+        });
+    })();
+</script>

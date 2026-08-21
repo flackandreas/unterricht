@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/request.php';
 require_once __DIR__ . '/includes/migrations.php';
 run_all_migrations();
 
@@ -23,8 +24,7 @@ $sso_secret = $_ENV['SSO_SECRET'] ?? getenv('SSO_SECRET') ?: '';
 if (!empty($sso_secret)) {
     $time_bucket = floor(time() / 300);
     $token = hash('sha256', get_current_user_kuerzel() . $sso_secret . $time_bucket);
-    $host = $_SERVER['HTTP_HOST'];
-    $host_name = explode(':', $host)[0];
+    $host_name = explode(':', request_host())[0];
     $url_antraege = '//' . $host_name . ':8888/login.php?autologin=1&kuerzel=' . urlencode(get_current_user_kuerzel()) . '&token=' . $token;
 } else {
     $url_antraege = '#';

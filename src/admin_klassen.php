@@ -43,7 +43,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     if ($e->getCode() == 23000) { // Integrity constraint violation
                         $_SESSION['flash_error'] = "Diese Klasse existiert bereits.";
                     } else {
-                        $_SESSION['flash_error'] = "Fehler beim Speichern: " . $e->getMessage();
+                        error_log('Speichern fehlgeschlagen (Klasse): ' . $e->getMessage());
+                        $_SESSION['flash_error'] = "Die Daten konnten nicht gespeichert werden.";
                     }
                 }
             }

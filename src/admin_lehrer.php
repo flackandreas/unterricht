@@ -58,7 +58,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     if ($e->getCode() == 23000) { // Integrity constraint violation (Duplicate entry)
                         $_SESSION['flash_error'] = "Das Kürzel wird bereits verwendet.";
                     } else {
-                        $_SESSION['flash_error'] = "Fehler beim Speichern: " . $e->getMessage();
+                        error_log('Speichern fehlgeschlagen (Lehrkraft): ' . $e->getMessage());
+                        $_SESSION['flash_error'] = "Die Daten konnten nicht gespeichert werden.";
                     }
                 }
             }

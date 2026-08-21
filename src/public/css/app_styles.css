@@ -1252,3 +1252,17 @@ body.dark-mode .danger-option {
         -webkit-overflow-scrolling: touch;
     }
 }
+
+/* Zähler für offene Freigaben in der Seitenleiste */
+.nav-badge {
+    margin-left: auto;
+    background: #f59e0b;
+    color: #fff;
+    font-size: 0.72em;
+    font-weight: 700;
+    line-height: 1;
+    padding: 3px 7px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
