@@ -4,6 +4,9 @@ db-data/
 # Environment and Secrets (if any added later)
 .env
 .env.*
+# Die Vorlage gehoert ins Repository - ohne sie muss jede neue
+# Installation die benoetigten Variablen erraten.
+!.env.example
 *.secret
 Oauth/*.json
 
