@@ -27,6 +27,18 @@ $twig = new \Twig\Environment($loader, [
 ]);
 
 // Helper extension: Expose a function to fetch active navigation states
+/**
+ * Haengt die Aenderungszeit einer Datei aus public/ als Version an ihre
+ * Adresse. Ohne das liefern Zwischenspeicher - beim Betrieb hinter Cloudflare
+ * bis zu vier Stunden lang - noch die alte Fassung aus, und Aenderungen an
+ * Stylesheet oder Skript bleiben unsichtbar.
+ */
+$twig->addFunction(new \Twig\TwigFunction('asset', function (string $pfad): string {
+    $datei = __DIR__ . '/../public/' . ltrim($pfad, '/');
+    $stand = is_readable($datei) ? filemtime($datei) : time();
+    return $pfad . '?v=' . $stand;
+}));
+
 $twig->addFunction(new \Twig\TwigFunction('is_current_page', function ($page) {
     return basename($_SERVER['PHP_SELF']) === $page;
 }));
