@@ -7,7 +7,7 @@
 {% block content %}
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
     <div>
-        <h1>📈 Trend-Analyse</h1>
+        <h1>Trend-Analyse</h1>
         <p style="color: var(--text-muted);">Verlauf der Unterrichts- und Klima-Bewertungen über die Zeit.</p>
     </div>
 </div>
@@ -45,7 +45,7 @@
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 500px), 1fr)); gap: 20px; margin-bottom: 30px;">
         {% for group_name, group in grouped_history %}
             <div class="content-box" style="margin-bottom: 0;">
-                <h3>📈 Stimmungs-Barometer: {{ group_name }}</h3>
+                <h3>Stimmungs-Barometer: {{ group_name }}</h3>
                 <div style="height: 350px; margin-top: 20px; position: relative;">
                     <canvas id="trendChart_{{ loop.index }}"></canvas>
                 </div>

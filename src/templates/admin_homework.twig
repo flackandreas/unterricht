@@ -17,7 +17,7 @@
 
 <div style="margin-bottom: 25px;">
     <details style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; cursor: pointer;">
-        <summary style="font-weight: 600; color: var(--primary-color); outline: none;">ℹ️ Wie funktioniert die KI-Auswertung? (Hier klicken)</summary>
+        <summary style="font-weight: 600; color: var(--primary-color); outline: none;">ℹWie funktioniert die KI-Auswertung? (Hier klicken)</summary>
         <div style="margin-top: 15px; font-size: 0.95em; color: var(--text-dark); line-height: 1.5; cursor: default;">
             <p style="margin-top: 0;"><strong>Vorteile für Lehrkräfte & Schüler:</strong></p>
             <ul style="margin-bottom: 0;">
@@ -70,17 +70,17 @@
                 <input type="number" name="expected_submissions" min="0" value="25" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
             <div class="form-group" style="margin: 0;">
-                <label style="display: block; margin-bottom: 8px; font-weight: 600;">🎁 Quest-Belohnung (optional)</label>
+                <label style="display: block; margin-bottom: 8px; font-weight: 600;">Quest-Belohnung (optional)</label>
                 <input type="text" name="quest_reward" placeholder="z.B. 5 Min. Musik hören" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
         </div>
 
         <div class="form-group" style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 8px; font-weight: 600;">🎯 KI-Feedback-Sprachniveau für Schüler</label>
+            <label style="display: block; margin-bottom: 8px; font-weight: 600;">KI-Feedback-Sprachniveau für Schüler</label>
             <select name="feedback_level" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
-                <option value="simple">🟢 Sehr einfache Sprache (leicht verständlich, kurze Sätze, anschaulich)</option>
-                <option value="appropriate" selected>🔵 Der Klassenstufe angemessen (Standard-Fachsprache)</option>
-                <option value="complex">🟣 Komplexe & detaillierte Erläuterungen (hohes sprachliches & fachliches Niveau)</option>
+                <option value="simple">Sehr einfache Sprache (leicht verständlich, kurze Sätze, anschaulich)</option>
+                <option value="appropriate" selected>Der Klassenstufe angemessen (Standard-Fachsprache)</option>
+                <option value="complex">Komplexe & detaillierte Erläuterungen (hohes sprachliches & fachliches Niveau)</option>
             </select>
         </div>
 
@@ -96,25 +96,25 @@
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 15px;">
             <div class="form-group" style="margin: 0;">
-                <label style="display: block; margin-bottom: 8px; font-weight: 600;">📅 Abgabe bis (optional)</label>
+                <label style="display: block; margin-bottom: 8px; font-weight: 600;">Abgabe bis (optional)</label>
                 <input type="datetime-local" name="due_date" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
             <div class="form-group" style="margin: 0;">
-                <label style="display: block; margin-bottom: 8px; font-weight: 600;">🔁 Versuche je Schüler/in</label>
+                <label style="display: block; margin-bottom: 8px; font-weight: 600;">Versuche je Schüler/in</label>
                 <input type="number" name="max_submissions_per_student" min="1" max="10" value="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
             <div class="form-group" style="margin: 0;">
-                <label style="display: block; margin-bottom: 8px; font-weight: 600;">🗑️ Fotos löschen nach (Tagen)</label>
+                <label style="display: block; margin-bottom: 8px; font-weight: 600;">Fotos löschen nach (Tagen)</label>
                 <input type="number" name="retention_days" min="0" max="3650" value="90" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
                 <p style="color: var(--text-muted); font-size: 0.8em; margin: 5px 0 0 0;">0 = nie automatisch löschen. Das Feedback bleibt in jedem Fall erhalten.</p>
             </div>
         </div>
 
         <div class="form-group" style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 8px; font-weight: 600;">👀 Wann sieht die Klasse die Auswertung?</label>
+            <label style="display: block; margin-bottom: 8px; font-weight: 600;">Wann sieht die Klasse die Auswertung?</label>
             <select name="release_mode" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
-                <option value="immediate" selected>🟢 Übungsmodus – sofort nach der Auswertung (formativ, ohne Freigabe)</option>
-                <option value="review">🟡 Erst nach deiner Freigabe – du prüfst jede Auswertung vorher</option>
+                <option value="immediate" selected>Übungsmodus – sofort nach der Auswertung (formativ, ohne Freigabe)</option>
+                <option value="review">Erst nach deiner Freigabe – du prüfst jede Auswertung vorher</option>
             </select>
             <p style="color: var(--text-muted); font-size: 0.85em; margin-top: 5px;">
                 Für benotete oder heikle Aufgaben empfiehlt sich die Freigabe: Eine Fehleinschätzung der KI erreicht dann niemanden ungeprüft.
@@ -199,9 +199,9 @@
                             {% if assignment.draft_count > 0 %}
                                 <span style="color: #92400e; font-weight: 600;">⏳ {{ assignment.draft_count }} zu prüfen</span>
                             {% elseif assignment.pending_count > 0 %}
-                                <span style="color: #075985;">⚙️ {{ assignment.pending_count }} in Arbeit</span>
+                                <span style="color: #075985;">{{ assignment.pending_count }} in Arbeit</span>
                             {% elseif assignment.submission_count > 0 %}
-                                <span style="color: var(--primary-color);">✓ vollständig</span>
+                                <span style="color: var(--primary-color);">vollständig</span>
                             {% else %}
                                 <span style="color: var(--text-muted);">–</span>
                             {% endif %}

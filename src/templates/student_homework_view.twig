@@ -74,9 +74,9 @@
                 <h4 style="margin: 0;">Feedback für dich:</h4>
 
                 <div class="level-switcher" style="display: inline-flex; background: #e2e8f0; padding: 3px; border-radius: 8px; font-size: 0.85em; font-weight: 600;">
-                    <button type="button" class="btn-level active" data-level="appropriate" style="width: auto; border: none; background: white; color: #1e293b; padding: 5px 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">🔵 Standard</button>
-                    <button type="button" class="btn-level" data-level="simple" style="width: auto; border: none; background: transparent; color: #64748b; padding: 5px 12px; border-radius: 6px;">🟢 Sehr einfach</button>
-                    <button type="button" class="btn-level" data-level="complex" style="width: auto; border: none; background: transparent; color: #64748b; padding: 5px 12px; border-radius: 6px;">🟣 Detailliert</button>
+                    <button type="button" class="btn-level active" data-level="appropriate" style="width: auto; border: none; background: white; color: #1e293b; padding: 5px 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">Standard</button>
+                    <button type="button" class="btn-level" data-level="simple" style="width: auto; border: none; background: transparent; color: #64748b; padding: 5px 12px; border-radius: 6px;">Sehr einfach</button>
+                    <button type="button" class="btn-level" data-level="complex" style="width: auto; border: none; background: transparent; color: #64748b; padding: 5px 12px; border-radius: 6px;">Detailliert</button>
                 </div>
             </div>
 
@@ -101,7 +101,7 @@
         <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
             {% if sub.allow_resubmission and sub.attempt_no < sub.max_submissions_per_student %}
                 <a href="/student_homework.php?t={{ sub.assignment_token }}" style="flex: 1 1 200px; text-align: center; text-decoration: none; padding: 12px; background: var(--primary-color); color: white; border-radius: 6px; font-weight: 600; font-size: 0.95em;">
-                    ✏️ Verbessern &amp; neu abgeben
+                    Verbessern &amp; neu abgeben
                     <span style="display: block; font-weight: 400; font-size: 0.8em; opacity: 0.9;">
                         Noch {{ sub.max_submissions_per_student - sub.attempt_no }} Versuch(e)
                     </span>
@@ -109,14 +109,14 @@
             {% endif %}
 
             <button type="button" id="report-btn" style="flex: 1 1 200px; width: auto; background: #f1f5f9; color: #475569; border: 1px solid var(--border-color); font-size: 0.95em;">
-                🤔 Feedback stimmt nicht?
+                Feedback stimmt nicht?
             </button>
         </div>
     {% endif %}
 
     {% if leaderboard|length > 1 %}
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
-            <h4 style="margin: 0 0 12px 0; font-size: 1em;">🏅 Klasse {{ sub.klasse }}</h4>
+            <h4 style="margin: 0 0 12px 0; font-size: 1em;">Klasse {{ sub.klasse }}</h4>
             {% for eintrag in leaderboard %}
                 <div style="display: flex; justify-content: space-between; padding: 6px 10px; border-radius: 6px; font-size: 0.88em; background: {{ loop.index is odd ? '#f8fafc' : 'transparent' }};">
                     <span>{{ loop.index }}. {{ eintrag.display_name }}</span>

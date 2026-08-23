@@ -14,6 +14,7 @@ $loader = new \Twig\Loader\FilesystemLoader(__DIR__ . '/../templates');
 $twig = new \Twig\Environment($loader, ['cache' => false]);
 
 // Die zur Laufzeit registrierten Erweiterungen als Attrappen.
+$twig->addFunction(new \Twig\TwigFunction('asset', static fn(string $p): string => $p));
 $twig->addFunction(new \Twig\TwigFunction('is_current_page', static fn(string $p): bool => false));
 $twig->addFunction(new \Twig\TwigFunction('qr_data_uri', static fn(string $t, int $s = 200): string => ''));
 $twig->addFunction(new \Twig\TwigFunction('pending_reviews', static fn(): int => 0));

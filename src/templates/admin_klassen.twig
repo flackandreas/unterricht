@@ -3,7 +3,7 @@
 {% block content %}
 <div class="content-box">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2 style="margin: 0;">🏫 Klassenverwaltung</h2>
+        <h2 style="margin: 0;">Klassenverwaltung</h2>
         <button class="btn btn-primary" onclick="openModal()" style="background-color: var(--primary-color); color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: 600;">+ Neu anlegen</button>
     </div>
 
@@ -25,13 +25,13 @@
                             <td style="padding: 12px 10px; text-align: right;">
                                 <button type="button" class="button-primary btn-edit" style="background-color: var(--primary-color); padding: 5px 10px; font-size: 0.85em; margin-right: 5px; color: white; border: none; border-radius: 4px; cursor: pointer;" title="Bearbeiten" 
                                     data-id="{{ c.id }}" 
-                                    data-name="{{ c.name }}">✎</button>
+                                    data-name="{{ c.name }}"></button>
                                 
                                 <form method="POST" style="display:inline-block; margin:0;" class="delete-form">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="id" value="{{ c.id }}">
-                                    <button type="button" class="button-danger btn-delete" style="background-color: var(--danger-color); padding: 5px 10px; font-size: 0.85em; color: white; border: none; border-radius: 4px; cursor: pointer;" title="Löschen">✖</button>
+                                    <button type="button" class="button-danger btn-delete" style="background-color: var(--danger-color); padding: 5px 10px; font-size: 0.85em; color: white; border: none; border-radius: 4px; cursor: pointer;" title="Löschen"></button>
                                 </form>
                             </td>
                         </tr>
