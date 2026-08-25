@@ -55,6 +55,7 @@ $routes = [
     'profile_action' => 'profile_action.php',
     'admin/lehrer' => 'admin_lehrer.php',
     'admin/klassen' => 'admin_klassen.php',
+    'admin/schueler' => 'admin_schueler.php',
     'admin/system' => 'admin_system.php',
     'admin/homework' => 'admin_homework.php',
     'admin/homework/review' => 'admin_homework.php',

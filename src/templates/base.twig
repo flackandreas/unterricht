@@ -179,6 +179,12 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a href="/admin_schueler.php" class="{{ is_current_page('admin_schueler.php') ? 'active' : '' }}">
+                    <span class="nav-icon">{{ symbol.zeichne('personen') }}</span>
+                    <span class="nav-text">Klassenlisten</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="/admin_system.php" class="{{ is_current_page('admin_system.php') ? 'active' : '' }}">
                     <span class="nav-icon">{{ symbol.zeichne('einstellung') }}</span>
                     <span class="nav-text">Systemverwaltung</span>

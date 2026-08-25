@@ -1,0 +1,169 @@
+{% extends "base.twig" %}
+{% import "_symbole.twig" as symbol %}
+
+{% block title %}Klassenlisten{% endblock %}
+
+{% block content %}
+<div class="content-box">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4);">
+        <h2 style="margin: 0;">Klassenlisten</h2>
+
+        {% if klassen|length > 0 %}
+            <form method="GET" style="margin: 0;">
+                <label for="class_id" style="font-size: var(--text-sm); color: var(--text-muted); margin-right: var(--space-2);">Klasse</label>
+                <select name="class_id" id="class_id" onchange="this.form.submit()"
+                        style="padding: 8px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-content); color: var(--text-dark);">
+                    {% for k in klassen %}
+                        <option value="{{ k.id }}" {{ k.id == class_id ? 'selected' : '' }}>{{ k.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        {% endif %}
+    </div>
+
+    {% if klassen|length == 0 %}
+        <p style="color: var(--text-muted);">Es sind noch keine Klassen angelegt. <a href="/admin_klassen.php">Zur Klassenverwaltung</a>.</p>
+    {% else %}
+
+        <p style="color: var(--text-muted); font-size: var(--text-sm); max-width: 70ch;">
+            Namen aus IServ oder Untis kopieren und hier einfügen &ndash; eine Zeile je Person.
+            &bdquo;Mustermann, Max&ldquo; und &bdquo;Max Mustermann&ldquo; werden gleich behandelt.
+            Wer schon Hausaufgaben abgegeben hat, wird automatisch mit seinem Lernfortschritt verknüpft.
+        </p>
+
+        <form method="POST" style="margin-top: var(--space-4);">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="class_id" value="{{ class_id }}">
+            <input type="hidden" name="action" value="preview">
+
+            <label for="namen" style="display: block; font-weight: 600; margin-bottom: var(--space-2);">
+                Liste für {{ klasse.name }}
+            </label>
+            <textarea name="namen" id="namen" rows="10" required
+                      placeholder="Mustermann, Max&#10;Musterfrau, Erika&#10;…"
+                      style="width: 100%; padding: var(--space-3); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-family: var(--font-sans); font-size: var(--text-sm); line-height: 1.6; box-sizing: border-box; background: var(--bg-content); color: var(--text-dark);">{{ eingabe }}</textarea>
+
+            <div style="margin-top: var(--space-3);">
+                <button type="submit" class="button-primary"
+                        style="background-color: var(--primary-color); color: white; border: none; padding: 10px 18px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600;">
+                    Vorschau
+                </button>
+                <span style="color: var(--text-muted); font-size: var(--text-sm); margin-left: var(--space-3);">
+                    Gespeichert wird erst im nächsten Schritt.
+                </span>
+            </div>
+        </form>
+
+        {% if vorschau %}
+            <div style="margin-top: var(--space-6); border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden;">
+                <div style="padding: var(--space-3) var(--space-4); background: var(--bg-table-header); border-bottom: 1px solid var(--border-color);">
+                    <strong>Vorschau</strong>
+                    <span style="color: var(--text-muted); font-size: var(--text-sm); margin-left: var(--space-2);">
+                        {{ vorschau.anzahl_neu }} neu &middot;
+                        {{ vorschau.anzahl_bleibt }} unverändert &middot;
+                        {{ vorschau.archiviert|length }} werden archiviert
+                    </span>
+                </div>
+
+                <div style="padding: var(--space-4);">
+                    {% if vorschau.anzahl_bekannt > 0 %}
+                        <p style="margin-top: 0; color: var(--success-color); font-size: var(--text-sm);">
+                            {{ symbol.zeichne('hinweis', 16) }}
+                            {{ vorschau.anzahl_bekannt }} von {{ vorschau.namen|length }} Namen sind aus bisherigen Abgaben bekannt und werden mit dem vorhandenen Lernfortschritt verknüpft.
+                        </p>
+                    {% endif %}
+
+                    <ol style="columns: 2; column-gap: var(--space-8); margin: 0 0 var(--space-4) 0; padding-left: 1.4em;">
+                        {% for eintrag in vorschau.namen %}
+                            <li style="break-inside: avoid; padding: 2px 0;">
+                                {{ eintrag.name }}
+                                {% if eintrag.bekannt %}
+                                    <span title="Lernfortschritt vorhanden" style="color: var(--success-color); font-size: var(--text-xs); font-weight: 600;">&nbsp;verknüpft</span>
+                                {% elseif eintrag.neu %}
+                                    <span style="color: var(--text-muted); font-size: var(--text-xs);">&nbsp;neu</span>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ol>
+
+                    {% if vorschau.archiviert|length > 0 %}
+                        <div style="background: var(--danger-bg); border-left: 3px solid var(--danger-color); padding: var(--space-3) var(--space-4); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin-bottom: var(--space-4);">
+                            <strong style="color: var(--danger-color-dark); font-size: var(--text-sm);">Diese Einträge werden archiviert</strong>
+                            <p style="margin: var(--space-2) 0 0 0; font-size: var(--text-sm); color: var(--text-dark);">
+                                {{ vorschau.archiviert|join(', ') }}
+                            </p>
+                            <p style="margin: var(--space-2) 0 0 0; font-size: var(--text-xs); color: var(--text-muted);">
+                                Archivieren löscht nichts &ndash; bisherige Beteiligung und Abgaben bleiben erhalten.
+                            </p>
+                        </div>
+                    {% endif %}
+
+                    <form method="POST" style="margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="class_id" value="{{ class_id }}">
+                        <input type="hidden" name="action" value="save">
+                        <input type="hidden" name="namen" value="{{ eingabe }}">
+                        <button type="submit"
+                                style="background-color: var(--primary-color); color: white; border: none; padding: 10px 18px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600;">
+                            Liste für {{ klasse.name }} speichern
+                        </button>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+{% if klasse %}
+<div class="content-box" style="margin-top: var(--space-6);">
+    <h3 style="margin-top: 0;">Aktuelle Liste &middot; {{ klasse.name }}</h3>
+
+    {% set aktive = liste|filter(s => s.archived_at is null) %}
+    {% set archivierte = liste|filter(s => s.archived_at is not null) %}
+
+    {% if liste|length == 0 %}
+        <p style="color: var(--text-muted);">Für diese Klasse ist noch keine Liste hinterlegt.</p>
+    {% else %}
+        <p style="color: var(--text-muted); font-size: var(--text-sm);">
+            {{ aktive|length }} aktiv{% if archivierte|length > 0 %}, {{ archivierte|length }} archiviert{% endif %}
+        </p>
+
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border-color);">
+                        <th style="padding: 12px 10px; color: var(--text-muted); font-size: var(--text-sm);">Name</th>
+                        <th style="padding: 12px 10px; color: var(--text-muted); font-size: var(--text-sm);">Status</th>
+                        <th style="padding: 12px 10px; color: var(--text-muted); font-size: var(--text-sm); text-align: right;">Aktion</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in liste %}
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 10px; font-weight: {{ s.archived_at ? '400' : '600' }}; color: {{ s.archived_at ? 'var(--text-muted)' : 'var(--text-dark)' }};">
+                                {{ s.display_name }}
+                            </td>
+                            <td style="padding: 10px; font-size: var(--text-sm); color: var(--text-muted);">
+                                {{ s.archived_at ? 'archiviert am ' ~ s.archived_at|date('d.m.Y') : 'aktiv' }}
+                            </td>
+                            <td style="padding: 10px; text-align: right;">
+                                <form method="POST" style="display: inline-block; margin: 0;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <input type="hidden" name="class_id" value="{{ class_id }}">
+                                    <input type="hidden" name="student_id" value="{{ s.id }}">
+                                    <input type="hidden" name="action" value="{{ s.archived_at ? 'restore' : 'archive' }}">
+                                    <button type="submit"
+                                            style="background: transparent; color: var(--text-muted); border: 1px solid var(--border-color); padding: 5px 12px; border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-xs);">
+                                        {{ s.archived_at ? 'Zurückholen' : 'Archivieren' }}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

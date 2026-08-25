@@ -44,6 +44,7 @@ final class Migrator
         'alter_feedback_reports.sql',
         'alter_audit_log.sql',
         'alter_homework_indexes.sql',
+        'alter_students.sql',
     ];
 
     private string $migrationDir;
