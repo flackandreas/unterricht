@@ -27,10 +27,15 @@ $apply = in_array('--apply', $argv, true);
 $retention = new Retention(Database::connection());
 
 $ergebnis = $retention->purgeExpiredImages($apply);
+$beteiligung = $retention->purgeParticipation($apply);
 
 if ($apply) {
     $retention->purgeTransientRows();
     echo "{$ergebnis['geloescht']} Bilddatei(en) gelöscht, Hilfstabellen aufgeräumt.\n";
+    echo "{$beteiligung['beitraege']} Beitrag/Beiträge und {$beteiligung['stunden']} leere Stunde(n) "
+        . "älter als {$beteiligung['frist']} Tage gelöscht.\n";
 } else {
     echo "{$ergebnis['geprueft']} Bilddatei(en) wären zu löschen. Mit --apply ausführen.\n";
+    echo "{$beteiligung['beitraege']} Beitrag/Beiträge wären zu löschen "
+        . "(Frist: {$beteiligung['frist']} Tage).\n";
 }

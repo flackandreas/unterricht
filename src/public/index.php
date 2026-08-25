@@ -50,6 +50,7 @@ $routes = [
     'dashboard' => 'dashboard_unterricht.php',
     'unterricht/live' => 'live.php',
     'unterricht/live/sync' => 'live_action.php',
+    'unterricht/beteiligung' => 'live_report.php',
     'login' => 'login.php',
     'login_sso' => 'login_sso.php',
     'logout' => 'logout.php',

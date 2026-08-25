@@ -9,12 +9,39 @@
 
 <p style="color: var(--text-muted); margin-bottom: 30px;">Hier verwalten Sie Ihren Unterricht.</p>
 
+{# Der Wochenhinweis. Technisch der billigste Teil des Moduls und
+   paedagogisch der wertvollste: stille Schuelerinnen und Schueler
+   verschwinden sonst systematisch aus der Wahrnehmung. #}
+{% if uebersehen|default([])|length > 0 %}
+<div class="content-box" style="border-left: 4px solid var(--warning-color); margin-bottom: var(--space-6);">
+    <div style="display: flex; align-items: flex-start; gap: var(--space-3);">
+        <span style="color: var(--warning-color); flex-shrink: 0; margin-top: 2px;">{{ symbol.zeichne('auge', 20) }}</span>
+        <div>
+            <strong>Länger nicht drangekommen</strong>
+            {% for gruppe in uebersehen %}
+                <p style="margin: var(--space-2) 0 0 0; font-size: var(--text-sm);">
+                    In der <strong>{{ gruppe.klasse }}</strong> seit über {{ still_ab }} Tagen:
+                    {{ gruppe.namen|join(', ') }}
+                    <a href="/live_report.php?class_id={{ gruppe.class_id }}"
+                       style="margin-left: var(--space-2); color: var(--primary-color); font-size: var(--text-xs); white-space: nowrap;">ansehen</a>
+                </p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="content-box">
     <h2>Schnellzugriff</h2>
     
     <div class="form-grid-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
-        <a href="/teacher_feedback.php" class="kpi-box kachel">
+        <a href="/live.php" class="kpi-box kachel">
             <span class="kachel__symbol">{{ symbol.zeichne('blitz', 24) }}</span>
+            <span class="kachel__text">Beteiligung erfassen</span>
+        </a>
+
+        <a href="/teacher_feedback.php" class="kpi-box kachel">
+            <span class="kachel__symbol">{{ symbol.zeichne('ziel', 24) }}</span>
             <span class="kachel__text">Feedback-Sitzung starten</span>
         </a>
 

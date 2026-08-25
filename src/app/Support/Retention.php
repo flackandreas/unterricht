@@ -56,6 +56,59 @@ final class Retention
     }
 
     /**
+     * Loescht Beteiligungsdaten, deren Zweck erfuellt ist.
+     *
+     * Der Zweck ist die muendliche Note des laufenden Schuljahres und die
+     * Faehigkeit, sie waehrend der Widerspruchsfrist zu begruenden. Danach
+     * ist die Strichliste gegenstandslos - und eine Aufzeichnung darueber,
+     * wer wann etwas gesagt hat, gehoert dann nicht mehr aufbewahrt.
+     *
+     * 400 Tage decken das laufende Schuljahr plus den Widerspruchszeitraum
+     * ab. Die Schule sollte die Frist trotzdem bewusst setzen, nicht erben:
+     * PARTICIPATION_RETENTION_DAYS in der .env.
+     *
+     * Leere Stunden verschwinden mit: eine Stunde ohne Beitraege traegt nur
+     * noch das Thema, und das ist nach der Frist ebenfalls entbehrlich.
+     *
+     * @return array{beitraege:int,stunden:int,frist:int}
+     */
+    public function purgeParticipation(bool $apply = true): array
+    {
+        $frist = max(30, (int)env('PARTICIPATION_RETENTION_DAYS', '400'));
+
+        if (!$apply) {
+            $stmt = $this->conn->prepare('
+                SELECT COUNT(*) FROM participation_events e
+                JOIN lesson_sessions ls ON ls.id = e.session_id
+                WHERE ls.lesson_date < CURDATE() - INTERVAL ? DAY
+            ');
+            $stmt->execute([$frist]);
+
+            return ['beitraege' => (int)$stmt->fetchColumn(), 'stunden' => 0, 'frist' => $frist];
+        }
+
+        $beitraege = $this->conn->prepare('
+            DELETE e FROM participation_events e
+            JOIN lesson_sessions ls ON ls.id = e.session_id
+            WHERE ls.lesson_date < CURDATE() - INTERVAL ? DAY
+        ');
+        $beitraege->execute([$frist]);
+
+        $stunden = $this->conn->prepare('
+            DELETE FROM lesson_sessions
+            WHERE lesson_date < CURDATE() - INTERVAL ? DAY
+              AND id NOT IN (SELECT session_id FROM participation_events)
+        ');
+        $stunden->execute([$frist]);
+
+        return [
+            'beitraege' => $beitraege->rowCount(),
+            'stunden'   => $stunden->rowCount(),
+            'frist'     => $frist,
+        ];
+    }
+
+    /**
      * Raeumt abgearbeitete Warteschlangen- und Zaehlereintraege ab.
      */
     public function purgeTransientRows(): void

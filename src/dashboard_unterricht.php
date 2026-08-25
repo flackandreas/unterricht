@@ -8,6 +8,9 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/request.php';
 require_once __DIR__ . '/includes/migrations.php';
+
+use App\Live\ParticipationReport;
+
 run_all_migrations();
 
 require_login();
@@ -38,6 +41,15 @@ try {
 
 require_once __DIR__ . '/includes/twig_setup.php';
 
+// Wer laenger nicht drangekommen ist. Nur fuer Klassen, in denen zuletzt
+// tatsaechlich erfasst wurde - sonst waere der Hinweis sofort Rauschen.
+try {
+    $uebersehen = (new ParticipationReport($conn))->silentStudents((int)$user_id);
+} catch (\Throwable $e) {
+    error_log('Wochenhinweis nicht ermittelbar: ' . $e->getMessage());
+    $uebersehen = [];
+}
+
 $csrf_token = get_csrf_token();
 $flash_success = $_SESSION['flash_success'] ?? null;
 $flash_error = $_SESSION['flash_error'] ?? null;
@@ -49,6 +61,8 @@ echo $twig->render('dashboard.twig', [
     'all_classes' => $all_classes,
     'selected_class_ids' => $selected_class_ids,
     'host_url' => request_base_url(),
+    'uebersehen' => $uebersehen,
+    'still_ab' => ParticipationReport::STILL_AB_TAGEN,
     'is_admin' => is_current_user_admin(),
     'is_logged_in' => true,
     'csrf_token' => $csrf_token,

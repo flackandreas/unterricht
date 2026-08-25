@@ -1,0 +1,209 @@
+{% extends "base.twig" %}
+{% import "_symbole.twig" as symbol %}
+
+{% block title %}Beteiligung{% endblock %}
+
+{% block extra_head %}
+<style>
+    .beleg-tabelle { width: 100%; border-collapse: collapse; }
+    .beleg-tabelle th {
+        text-align: left; padding: 10px; font-size: var(--text-xs);
+        text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--text-muted); border-bottom: 2px solid var(--border-color);
+        white-space: nowrap;
+    }
+    .beleg-tabelle td {
+        padding: 10px; border-bottom: 1px solid var(--border-color);
+        font-size: var(--text-sm); vertical-align: middle;
+    }
+    .beleg-tabelle tbody tr:hover { background: var(--bg-table-header); }
+    .beleg-zahl { font-variant-numeric: tabular-nums; text-align: right; }
+
+    .beleg-mischung { display: flex; height: 10px; border-radius: var(--radius-full); overflow: hidden; min-width: 90px; background: var(--bg-main); }
+    .beleg-mischung span { display: block; height: 100%; }
+    .beleg-mischung .kurz { background: var(--border-color); }
+    .beleg-mischung .solide { background: var(--primary-color); }
+    .beleg-mischung .weiter { background: var(--success-color); }
+
+    .beleg-verlauf { display: flex; align-items: flex-end; gap: 2px; height: 26px; }
+    .beleg-verlauf span {
+        width: 7px; background: var(--primary-color); border-radius: 1px 1px 0 0;
+        min-height: 2px; opacity: 0.85;
+    }
+    .beleg-verlauf span.leer { background: var(--border-color); opacity: 0.5; }
+
+    .beleg-still td { background: var(--warning-color); background: color-mix(in srgb, var(--warning-color) 12%, transparent); }
+    .beleg-legende { display: flex; gap: var(--space-4); flex-wrap: wrap; font-size: var(--text-xs); color: var(--text-muted); }
+    .beleg-legende b { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-box">
+    <h2 style="margin-top: 0;">Beteiligung</h2>
+
+    {% if meine_klassen|length == 0 %}
+        <p style="color: var(--text-muted);">Für dich ist noch keine Klasse hinterlegt.</p>
+    {% else %}
+        <form method="GET" style="display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: flex-end; margin-bottom: var(--space-4);">
+            <div>
+                <label for="class_id" style="display: block; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 4px;">Klasse</label>
+                <select name="class_id" id="class_id" style="padding: 8px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-content); color: var(--text-dark);">
+                    {% for k in meine_klassen %}
+                        <option value="{{ k.id }}" {{ k.id == class_id ? 'selected' : '' }}>{{ k.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="fach" style="display: block; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 4px;">Fach</label>
+                <select name="fach" id="fach" style="padding: 8px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-content); color: var(--text-dark);">
+                    <option value="">alle</option>
+                    {% for f in faecher %}
+                        <option value="{{ f }}" {{ f == fach ? 'selected' : '' }}>{{ f }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="von" style="display: block; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 4px;">von</label>
+                <input type="date" name="von" id="von" value="{{ von }}" style="padding: 7px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-content); color: var(--text-dark);">
+            </div>
+            <div>
+                <label for="bis" style="display: block; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 4px;">bis</label>
+                <input type="date" name="bis" id="bis" value="{{ bis }}" style="padding: 7px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-content); color: var(--text-dark);">
+            </div>
+            <button type="submit" style="background-color: var(--primary-color); color: #fff; border: none; padding: 9px 18px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600;">
+                Anzeigen
+            </button>
+        </form>
+
+        {% if zeilen|length == 0 %}
+            <p style="color: var(--text-muted);">
+                Für {{ klasse.name }} liegt in diesem Zeitraum nichts vor.
+                {% if klasse %}<a href="/live.php?class_id={{ class_id }}">Jetzt erfassen</a>.{% endif %}
+            </p>
+        {% else %}
+            <div style="overflow-x: auto;">
+                <table class="beleg-tabelle">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th class="beleg-zahl">Beiträge</th>
+                            <th>Mischung</th>
+                            <th>Verlauf</th>
+                            <th class="beleg-zahl">Aufgerufen</th>
+                            <th>Zuletzt</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for z in zeilen %}
+                            {% set still = z.letzter is null or z.letzter|date('U') < ('now'|date('U') - still_ab * 86400) %}
+                            <tr class="{{ still ? 'beleg-still' : '' }}">
+                                <td style="font-weight: 600;">{{ z.display_name }}</td>
+                                <td class="beleg-zahl">{{ z.anzahl }}</td>
+                                <td>
+                                    {% if z.anzahl > 0 %}
+                                        <span class="beleg-mischung" title="{{ z.kurz }} kurz, {{ z.solide }} solide, {{ z.weiterfuehrend }} weiterführend">
+                                            <span class="kurz" style="width: {{ (z.kurz / z.anzahl * 100)|round }}%;"></span>
+                                            <span class="solide" style="width: {{ (z.solide / z.anzahl * 100)|round }}%;"></span>
+                                            <span class="weiter" style="width: {{ (z.weiterfuehrend / z.anzahl * 100)|round }}%;"></span>
+                                        </span>
+                                    {% else %}
+                                        <span style="color: var(--text-muted);">&ndash;</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if verlauf.wochen|length > 0 %}
+                                        <span class="beleg-verlauf">
+                                            {% for w in verlauf.wochen %}
+                                                {% set wert = verlauf.werte[z.student_id][w]|default(0) %}
+                                                <span class="{{ wert == 0 ? 'leer' : '' }}"
+                                                      style="height: {{ wert == 0 ? 3 : min(4 + wert * 6, 26) }}px;"
+                                                      title="KW {{ w|split('-')|last }}: {{ wert }}"></span>
+                                            {% endfor %}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="beleg-zahl">{{ z.aufgerufen > 0 ? z.aufgerufen : '' }}</td>
+                                <td style="color: var(--text-muted); white-space: nowrap;">
+                                    {{ z.letzter ? z.letzter|date('d.m.Y') : 'nie' }}
+                                </td>
+                                <td style="text-align: right;">
+                                    <a href="?class_id={{ class_id }}&fach={{ fach|url_encode }}&von={{ von }}&bis={{ bis }}&student={{ z.student_id }}"
+                                       style="font-size: var(--text-xs); color: var(--primary-color); text-decoration: none; white-space: nowrap;">
+                                        Belege{{ z.notizen > 0 ? ' (' ~ z.notizen ~ ')' : '' }}
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="beleg-legende" style="margin-top: var(--space-4);">
+                <span><b style="background: var(--border-color);"></b>kurz</span>
+                <span><b style="background: var(--primary-color);"></b>solide</span>
+                <span><b style="background: var(--success-color);"></b>weiterführend</span>
+                <span style="margin-left: auto;">Hervorgehoben: seit über {{ still_ab }} Tagen kein Beitrag.</span>
+            </div>
+
+            <div style="margin-top: var(--space-6); padding: var(--space-4); background: var(--bg-main); border-left: 3px solid var(--primary-color); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;">
+                <strong style="font-size: var(--text-sm);">Keine Note, sondern Belege</strong>
+                <p style="margin: var(--space-2) 0 0 0; font-size: var(--text-sm); color: var(--text-muted); max-width: 75ch;">
+                    Die mündliche Note ist eine pädagogische Ermessensentscheidung. Ein Mittelwert aus
+                    Strichlisten wäre angreifbarer als ein begründetes Urteil, weil er das Ermessen
+                    ersetzt statt es zu stützen. Diese Seite hält fest, worauf sich das Urteil stützt.
+                </p>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+{% if person %}
+<div class="content-box" style="margin-top: var(--space-6);">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); flex-wrap: wrap;">
+        <h3 style="margin: 0;">{{ person.display_name }}</h3>
+        <a href="?class_id={{ class_id }}&fach={{ fach|url_encode }}&von={{ von }}&bis={{ bis }}"
+           style="font-size: var(--text-sm); color: var(--text-muted);">schließen</a>
+    </div>
+
+    <p style="color: var(--text-muted); font-size: var(--text-sm);">
+        {{ person.anzahl }} Beiträge im Zeitraum
+        &middot; {{ person.kurz }} kurz, {{ person.solide }} solide, {{ person.weiterfuehrend }} weiterführend
+        {% if person.aufgerufen > 0 %}&middot; davon {{ person.aufgerufen }} nach Aufruf{% endif %}
+    </p>
+
+    {% if belege|length == 0 %}
+        <p style="color: var(--text-muted);">Keine einzelnen Beiträge im Zeitraum.</p>
+    {% else %}
+        <div style="overflow-x: auto;">
+            <table class="beleg-tabelle">
+                <thead>
+                    <tr>
+                        <th>Datum</th>
+                        <th>Stunde</th>
+                        <th>Thema</th>
+                        <th>Art</th>
+                        <th>Notiz</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in belege %}
+                        <tr>
+                            <td style="white-space: nowrap;">{{ b.lesson_date|date('d.m.Y') }}</td>
+                            <td style="white-space: nowrap; color: var(--text-muted);">{{ b.period }}. &middot; {{ b.fach }}</td>
+                            <td>{{ b.topic ?: '–' }}</td>
+                            <td style="white-space: nowrap;">
+                                {{ {1: 'kurz', 2: 'solide', 3: 'weiterführend'}[b.weight]|default('–') }}
+                                {% if b.kind == 'aufgerufen' %}<span style="color: var(--text-muted);">, aufgerufen</span>{% endif %}
+                            </td>
+                            <td>{{ b.note ?: '' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}
