@@ -25,6 +25,10 @@ use App\Homework\EvaluationQueue;
 use App\Homework\Gamification;
 use App\Homework\HomeworkRepository;
 use App\Homework\SubmissionService;
+use App\Live\LessonRepository;
+use App\Substitute\PlanQueue;
+use App\Substitute\PlanService;
+use App\Support\AuditLog;
 use App\Support\Database;
 
 $einmal = in_array('--once', $argv, true);
@@ -39,6 +43,12 @@ $conn = Database::connection();
 $queue = new EvaluationQueue($conn);
 $repository = new HomeworkRepository($conn);
 $service = new SubmissionService($conn, $repository, $queue, new Gamification($conn));
+
+// Zweite Warteschlange: Vertretungsstunden. Auswertungen haben Vorrang -
+// eine Schuelerin wartet auf ihr Feedback, eine Vertretungsmappe wird erst
+// am naechsten Morgen gebraucht.
+$plaene = new PlanQueue($conn);
+$planService = new PlanService($conn, new LessonRepository($conn), $plaene, new AuditLog($conn));
 
 $laufend = true;
 $verarbeitet = 0;
@@ -59,6 +69,7 @@ echo "Worker gestartet" . ($einmal ? ' (ein Durchlauf)' : '') . ".\n";
 while ($laufend) {
     try {
         $job = $queue->reserve();
+        $planAuftrag = $job === null ? $plaene->reserve() : null;
     } catch (\Throwable $e) {
         fwrite(STDERR, 'Warteschlange nicht lesbar: ' . $e->getMessage() . "\n");
         if ($einmal) {
@@ -68,11 +79,36 @@ while ($laufend) {
         continue;
     }
 
-    if ($job === null) {
+    if ($job === null && $planAuftrag === null) {
         if ($einmal) {
             break;
         }
         sleep(3);
+        continue;
+    }
+
+    if ($job === null) {
+        $planId = (int)$planAuftrag['id'];
+        $start = microtime(true);
+
+        try {
+            $planService->generate($planAuftrag);
+            printf("  Vertretungsstunde %d entworfen (%.1fs)\n", $planId, microtime(true) - $start);
+        } catch (\Throwable $e) {
+            $plaene->markFailed($planId, $e->getMessage(), (int)$planAuftrag['attempts']);
+            fwrite(STDERR, sprintf(
+                "  Vertretungsstunde %d fehlgeschlagen (Versuch %d): %s\n",
+                $planId,
+                $planAuftrag['attempts'],
+                $e->getMessage()
+            ));
+        }
+
+        $verarbeitet++;
+        if ($maximum > 0 && $verarbeitet >= $maximum) {
+            break;
+        }
+
         continue;
     }
 

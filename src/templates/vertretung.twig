@@ -1,0 +1,263 @@
+{% extends "base.twig" %}
+{% import "_symbole.twig" as symbol %}
+
+{% block title %}Vertretung{% endblock %}
+
+{% block content %}
+<div class="content-box">
+    <h2 style="margin-top: 0;">Vertretungsstunde</h2>
+    <p style="color: var(--text-muted); font-size: var(--text-sm); max-width: 72ch;">
+        Der Entwurf entsteht aus den zuletzt behandelten Themen dieser Klasse in diesem Fach &ndash;
+        das unterscheidet ihn vom Lückenfüller. Er geht erst ins Lehrerzimmer, wenn du ihn freigibst.
+    </p>
+
+    {% if meine_klassen|length == 0 %}
+        <p style="color: var(--text-muted);">Für dich ist noch keine Klasse hinterlegt.</p>
+    {% else %}
+        <form method="POST" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); align-items: end; margin-top: var(--space-4);">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="action" value="request">
+
+            <div>
+                <label for="class_id" style="display: block; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 4px;">Klasse</label>
+                <select name="class_id" id="class_id" required style="width: 100%; padding: 9px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-content); color: var(--text-dark);">
+                    {% for k in meine_klassen %}
+                        <option value="{{ k.id }}">{{ k.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label for="fach" style="display: block; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 4px;">Fach</label>
+                <input type="text" name="fach" id="fach" required placeholder="Mathematik"
+                       style="width: 100%; padding: 9px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); box-sizing: border-box; background: var(--bg-content); color: var(--text-dark);">
+            </div>
+
+            <div>
+                <label for="lesson_date" style="display: block; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 4px;">Datum</label>
+                <input type="date" name="lesson_date" id="lesson_date" required value="{{ heute }}"
+                       style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); box-sizing: border-box; background: var(--bg-content); color: var(--text-dark);">
+            </div>
+
+            <div>
+                <label for="period" style="display: block; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 4px;">Stunde</label>
+                <select name="period" id="period" style="width: 100%; padding: 9px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-content); color: var(--text-dark);">
+                    <option value="0">offen</option>
+                    {% for p in 1..10 %}<option value="{{ p }}">{{ p }}.</option>{% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label for="dauer" style="display: block; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 4px;">Dauer</label>
+                <select name="dauer" id="dauer" style="width: 100%; padding: 9px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-content); color: var(--text-dark);">
+                    <option value="45">45 Minuten</option>
+                    <option value="90">90 Minuten</option>
+                </select>
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+                <label for="hinweis" style="display: block; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 4px;">Hinweis (optional)</label>
+                <input type="text" name="hinweis" id="hinweis" maxlength="500"
+                       placeholder="z. B. Arbeit steht nächste Woche an, bitte Kapitel 3 wiederholen"
+                       style="width: 100%; padding: 9px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); box-sizing: border-box; background: var(--bg-content); color: var(--text-dark);">
+            </div>
+
+            <div>
+                <button type="submit" style="background-color: var(--primary-color); color: #fff; border: none; padding: 10px 20px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600;">
+                    Entwurf anfordern
+                </button>
+            </div>
+        </form>
+    {% endif %}
+</div>
+
+{% if plan %}
+<div class="content-box" style="margin-top: var(--space-6);">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); flex-wrap: wrap;">
+        <h3 style="margin: 0;">
+            {{ plan.klasse }} &middot; {{ plan.fach }} &middot; {{ plan.lesson_date|date('d.m.Y') }}
+            {% if plan.period %}&middot; {{ plan.period }}. Stunde{% endif %}
+        </h3>
+        <span style="font-size: var(--text-xs); font-weight: 600; padding: 4px 10px; border-radius: var(--radius-full);
+                     background: {{ plan.status == 'released' ? 'var(--success-color)' : (plan.status == 'failed' ? 'var(--danger-color)' : 'var(--bg-table-header)') }};
+                     color: {{ plan.status in ['released','failed'] ? '#fff' : 'var(--text-muted)' }};">
+            {{ {'queued': 'in der Warteschlange', 'running': 'wird erzeugt', 'draft': 'Entwurf', 'released': 'freigegeben', 'failed': 'fehlgeschlagen'}[plan.status] }}
+        </span>
+    </div>
+
+    {% if plan.status in ['queued', 'running'] %}
+        <p style="color: var(--text-muted);">
+            Der Arbeitsprozess erzeugt den Entwurf. Das dauert in der Regel unter einer Minute &ndash;
+            diese Seite neu laden.
+        </p>
+    {% elseif plan.status == 'failed' %}
+        <p style="color: var(--danger-color);">
+            Nach {{ plan.attempts }} Versuchen aufgegeben: {{ plan.last_error }}
+        </p>
+    {% elseif plan_daten %}
+
+        <p style="color: var(--text-muted); font-size: var(--text-sm);">
+            Grundlage: {% if kontext|length > 0 %}
+                {{ kontext|length }} Stundenthemen, zuletzt &bdquo;{{ kontext|last.topic }}&ldquo;
+            {% else %}
+                <span style="color: var(--warning-color-dark);">kein Themenverlauf &ndash; die Stunde ist allgemein geblieben</span>
+            {% endif %}
+            {% if plan.hinweis %}<br>Dein Hinweis: {{ plan.hinweis }}{% endif %}
+        </p>
+
+        <h4 style="margin-bottom: var(--space-2);">{{ plan_daten.titel }}</h4>
+
+        <div style="display: grid; gap: var(--space-4); margin-top: var(--space-4);">
+            <div>
+                <strong style="font-size: var(--text-sm);">Einstieg</strong>
+                <p style="margin: 4px 0 0 0; white-space: pre-wrap;">{{ plan_daten.einstieg }}</p>
+            </div>
+            <div>
+                <strong style="font-size: var(--text-sm);">Arbeitsauftrag</strong>
+                <p style="margin: 4px 0 0 0; white-space: pre-wrap;">{{ plan_daten.arbeitsauftrag }}</p>
+            </div>
+
+            {% if plan_daten.aufgaben|length > 0 %}
+            <div>
+                <strong style="font-size: var(--text-sm);">Aufgaben mit Lösungen</strong>
+                <ol style="margin: var(--space-2) 0 0 0; padding-left: 1.3em;">
+                    {% for a in plan_daten.aufgaben %}
+                        <li style="margin-bottom: var(--space-3);">
+                            <div style="white-space: pre-wrap;">{{ a.aufgabe }}</div>
+                            <div style="margin-top: 4px; padding: var(--space-2) var(--space-3); background: var(--bg-main); border-left: 3px solid var(--success-color); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: var(--text-sm); white-space: pre-wrap;">
+                                {{ a.loesung }}
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ol>
+            </div>
+            {% endif %}
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4);">
+                <div>
+                    <strong style="font-size: var(--text-sm);">Wenn es nicht weitergeht</strong>
+                    <p style="margin: 4px 0 0 0; font-size: var(--text-sm);">{{ plan_daten.differenzierung.leichter }}</p>
+                </div>
+                <div>
+                    <strong style="font-size: var(--text-sm);">Für die, die früh fertig sind</strong>
+                    <p style="margin: 4px 0 0 0; font-size: var(--text-sm);">{{ plan_daten.differenzierung.schwerer }}</p>
+                </div>
+            </div>
+
+            <div>
+                <strong style="font-size: var(--text-sm);">Ablauf</strong>
+                <table style="width: 100%; border-collapse: collapse; margin-top: var(--space-2); font-size: var(--text-sm);">
+                    {% for z in plan_daten.zeitplan %}
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 6px 10px 6px 0; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-muted);">{{ z.minuten }} min</td>
+                            <td style="padding: 6px 10px 6px 0;">{{ z.abschnitt }}</td>
+                            <td style="padding: 6px 0; color: var(--text-muted); white-space: nowrap;">{{ z.sozialform }}</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+                {% if plan_daten.zeitplan_summe != plan.dauer %}
+                    <p style="font-size: var(--text-xs); color: var(--warning-color-dark); margin: var(--space-2) 0 0 0;">
+                        Der Ablauf ergibt {{ plan_daten.zeitplan_summe }} statt {{ plan.dauer }} Minuten.
+                    </p>
+                {% endif %}
+            </div>
+
+            <div>
+                <strong style="font-size: var(--text-sm);">Material</strong>
+                <p style="margin: 4px 0 0 0; font-size: var(--text-sm);">{{ plan_daten.material }}</p>
+            </div>
+            <div>
+                <strong style="font-size: var(--text-sm);">Sicherung</strong>
+                <p style="margin: 4px 0 0 0; font-size: var(--text-sm);">{{ plan_daten.sicherung }}</p>
+            </div>
+            <div>
+                <strong style="font-size: var(--text-sm);">Für dich nach der Rückkehr</strong>
+                <p style="margin: 4px 0 0 0; font-size: var(--text-sm);">{{ plan_daten.hinweis_fachlehrer }}</p>
+            </div>
+        </div>
+
+        <div style="margin-top: var(--space-6); padding-top: var(--space-4); border-top: 1px solid var(--border-color);">
+            {% if plan.status == 'draft' %}
+                <div style="background: var(--bg-main); border-left: 3px solid var(--primary-color); padding: var(--space-3) var(--space-4); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin-bottom: var(--space-4);">
+                    <strong style="font-size: var(--text-sm);">Entwurf &ndash; noch nicht im Lehrerzimmer</strong>
+                    <p style="margin: var(--space-2) 0 0 0; font-size: var(--text-sm); color: var(--text-muted);">
+                        Lies ihn durch. Erst die Freigabe erzeugt den Zugang, über den die
+                        Vertretungskraft ihn öffnen kann.
+                    </p>
+                </div>
+                <form method="POST" style="display: inline-block; margin: 0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="action" value="release">
+                    <input type="hidden" name="id" value="{{ plan.id }}">
+                    <button type="submit" style="background-color: var(--primary-color); color: #fff; border: none; padding: 10px 20px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600;">
+                        Freigeben
+                    </button>
+                </form>
+            {% elseif plan.status == 'released' %}
+                {% set adresse = host_url ~ '/vertretung_view.php?token=' ~ plan.access_token %}
+                <div style="display: flex; gap: var(--space-6); flex-wrap: wrap; align-items: center;">
+                    <div style="flex-shrink: 0;">
+                        <img src="{{ qr_data_uri(adresse, 160) }}" alt="Zugang zur Vertretungsmappe" width="160" height="160">
+                    </div>
+                    <div style="flex: 1; min-width: 240px;">
+                        <strong style="font-size: var(--text-sm);">Zugang fürs Lehrerzimmer</strong>
+                        <p style="margin: var(--space-2) 0; font-size: var(--text-sm); color: var(--text-muted);">
+                            Ausdrucken und aushängen, oder die Adresse weitergeben.
+                        </p>
+                        <input type="text" readonly value="{{ adresse }}" onclick="this.select()"
+                               style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: var(--text-xs); box-sizing: border-box; background: var(--bg-main); color: var(--text-dark);">
+                        <p style="margin: var(--space-3) 0 0 0;">
+                            <a href="/vertretung_view.php?token={{ plan.access_token }}&pdf=1"
+                               style="color: var(--primary-color); font-size: var(--text-sm);">Als PDF herunterladen</a>
+                        </p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="content-box" style="margin-top: var(--space-6);">
+    <h3 style="margin-top: 0;">Bisher angefordert</h3>
+
+    {% if plaene|length == 0 %}
+        <p style="color: var(--text-muted);">Noch nichts angefordert.</p>
+    {% else %}
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border-color);">
+                        <th style="text-align: left; padding: 10px 10px 10px 0; font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);">Wann</th>
+                        <th style="text-align: left; padding: 10px; font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);">Klasse / Fach</th>
+                        <th style="text-align: left; padding: 10px; font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);">Stand</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in plaene %}
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 10px 10px 10px 0; white-space: nowrap;">{{ p.lesson_date|date('d.m.Y') }}</td>
+                            <td style="padding: 10px;">{{ p.klasse }} &middot; {{ p.fach }}</td>
+                            <td style="padding: 10px; color: var(--text-muted); font-size: var(--text-sm);">
+                                {{ {'queued': 'wartet', 'running': 'wird erzeugt', 'draft': 'Entwurf', 'released': 'freigegeben', 'failed': 'fehlgeschlagen'}[p.status] }}
+                            </td>
+                            <td style="padding: 10px; text-align: right; white-space: nowrap;">
+                                <a href="/vertretung.php?id={{ p.id }}" style="color: var(--primary-color); font-size: var(--text-sm); text-decoration: none;">Ansehen</a>
+                                <form method="POST" style="display: inline-block; margin: 0 0 0 var(--space-2);">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="id" value="{{ p.id }}">
+                                    <button type="submit" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 4px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-xs);">
+                                        Löschen
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

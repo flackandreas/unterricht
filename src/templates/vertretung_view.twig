@@ -1,0 +1,125 @@
+{# Die Vertretungsmappe fuer die einspringende Kraft.
+
+   Bewusst ohne base.twig: geoeffnet wird das um 7:40 Uhr im Lehrerzimmer,
+   auf einem fremden Geraet, ohne Anmeldung. Eine Seitenleiste mit
+   Navigation waere hier nur im Weg. #}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if plan %}Vertretung {{ plan.klasse }} &middot; {{ plan.fach }}{% else %}Nicht gefunden{% endif %}</title>
+    <link rel="stylesheet" href="{{ asset('/css/app_styles.css') }}">
+    <link href="{{ asset('/css/fonts.css') }}" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('/favicon.svg') }}">
+    <style>
+        body { background: var(--bg-main); color: var(--text-dark); font-family: var(--font-sans); margin: 0; }
+        .mappe { max-width: 760px; margin: 0 auto; padding: var(--space-6) var(--space-4) var(--space-12); }
+        .mappe h1 { font-family: var(--font-display); font-size: var(--text-2xl); margin: 0 0 var(--space-2) 0; }
+        .mappe h2 {
+            font-size: var(--text-base); margin: var(--space-6) 0 var(--space-2) 0;
+            padding-bottom: 4px; border-bottom: 1px solid var(--border-color);
+        }
+        .kopf { color: var(--text-muted); font-size: var(--text-sm); margin: 0 0 var(--space-6) 0; }
+        .karte { background: var(--bg-content); border-radius: var(--radius-md); padding: var(--space-6); box-shadow: var(--shadow-soft); }
+        .absatz { white-space: pre-wrap; margin: 0; }
+        .loesung {
+            margin-top: var(--space-2); padding: var(--space-3);
+            background: var(--bg-main); border-left: 3px solid var(--success-color);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0; white-space: pre-wrap;
+        }
+        .loesung b { display: block; font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 4px; }
+        .ablauf { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+        .ablauf td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--border-color); }
+        .ablauf .min { white-space: nowrap; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .zwei { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4); }
+        .knopf {
+            display: inline-block; background: var(--primary-color); color: #fff;
+            text-decoration: none; padding: 10px 20px; border-radius: var(--radius-sm); font-weight: 600;
+        }
+        @media print {
+            body { background: #fff; }
+            .karte { box-shadow: none; padding: 0; }
+            .knopf, .kein-druck { display: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="mappe">
+    {% if plan is null %}
+        <div class="karte">
+            <h1>Nicht gefunden</h1>
+            <p style="color: var(--text-muted);">
+                Diese Vertretungsmappe gibt es nicht oder sie wurde zurückgezogen.
+                Bitte in der Schulleitung nachfragen.
+            </p>
+        </div>
+    {% else %}
+        <div class="karte">
+            <h1>{{ daten.titel|default('Vertretungsstunde') }}</h1>
+            <p class="kopf">
+                {{ plan.klasse }} &middot; {{ plan.fach }} &middot; {{ plan.lesson_date|date('d.m.Y') }}
+                {% if plan.period %}&middot; {{ plan.period }}. Stunde{% endif %}
+                &middot; {{ plan.dauer }} Minuten
+            </p>
+
+            <h2>Einstieg</h2>
+            <p class="absatz">{{ daten.einstieg }}</p>
+
+            <h2>Arbeitsauftrag</h2>
+            <p class="absatz">{{ daten.arbeitsauftrag }}</p>
+
+            {% if daten.aufgaben|default([])|length > 0 %}
+                <h2>Aufgaben</h2>
+                <ol style="padding-left: 1.3em; margin: 0;">
+                    {% for a in daten.aufgaben %}
+                        <li style="margin-bottom: var(--space-4);">
+                            <div class="absatz">{{ a.aufgabe }}</div>
+                            <div class="loesung"><b>Lösung</b>{{ a.loesung }}</div>
+                        </li>
+                    {% endfor %}
+                </ol>
+            {% endif %}
+
+            <h2>Wenn es hakt</h2>
+            <div class="zwei">
+                <div>
+                    <strong style="font-size: var(--text-sm);">Kommt jemand nicht weiter</strong>
+                    <p style="margin: 4px 0 0 0; font-size: var(--text-sm);">{{ daten.differenzierung.leichter|default('') }}</p>
+                </div>
+                <div>
+                    <strong style="font-size: var(--text-sm);">Ist jemand früh fertig</strong>
+                    <p style="margin: 4px 0 0 0; font-size: var(--text-sm);">{{ daten.differenzierung.schwerer|default('') }}</p>
+                </div>
+            </div>
+
+            <h2>Ablauf</h2>
+            <table class="ablauf">
+                {% for z in daten.zeitplan|default([]) %}
+                    <tr>
+                        <td class="min">{{ z.minuten }} min</td>
+                        <td>{{ z.abschnitt }}</td>
+                        <td style="color: var(--text-muted); white-space: nowrap;">{{ z.sozialform }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+
+            <h2>Material</h2>
+            <p class="absatz">{{ daten.material }}</p>
+
+            <h2>Schluss</h2>
+            <p class="absatz">{{ daten.sicherung }}</p>
+
+            <p class="kein-druck" style="margin-top: var(--space-8);">
+                <a class="knopf" href="/vertretung_view.php?token={{ token }}&pdf=1">Als PDF herunterladen</a>
+            </p>
+
+            <p style="margin-top: var(--space-6); font-size: var(--text-xs); color: var(--text-muted);">
+                Entwurf einer KI, freigegeben von der Fachlehrkraft am {{ plan.released_at|date('d.m.Y') }}.
+                Nicht verstandene Stellen bitte auslassen und der Fachlehrkraft zurückmelden.
+            </p>
+        </div>
+    {% endif %}
+</div>
+</body>
+</html>

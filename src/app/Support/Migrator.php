@@ -47,6 +47,7 @@ final class Migrator
         'alter_students.sql',
         'alter_lesson_sessions.sql',
         'alter_participation.sql',
+        'alter_substitute_plans.sql',
     ];
 
     private string $migrationDir;

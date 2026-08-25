@@ -1,0 +1,83 @@
+{# Vertretungsmappe als PDF - gerendert mit dompdf, wie die
+   Unterrichtsvorbereitung in pdf_assignment_summary.twig. #}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'DejaVu Sans', sans-serif; font-size: 11pt; color: #1e293b; line-height: 1.5; }
+        h1 { font-size: 17pt; color: #4f46e5; margin: 0 0 4px 0; }
+        h2 { font-size: 12pt; margin: 20px 0 6px 0; padding-bottom: 4px; border-bottom: 1px solid #cbd5e1; }
+        .meta { color: #64748b; font-size: 9.5pt; margin-bottom: 18px; }
+        .absatz { white-space: pre-wrap; }
+        .loesung {
+            background: #f8fafc; border-left: 3px solid #009964; padding: 8px 12px;
+            margin: 6px 0 0 0; white-space: pre-wrap; font-size: 10pt;
+        }
+        .loesung b { display: block; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 3px; }
+        table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+        td { padding: 5px 8px 5px 0; border-bottom: 1px solid #e2e8f0; }
+        .min { white-space: nowrap; color: #64748b; }
+        .zwei td { border: 1px solid #e2e8f0; padding: 8px 10px; vertical-align: top; }
+        .fuss { margin-top: 26px; padding-top: 8px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 8.5pt; }
+        ol { padding-left: 18px; }
+        li { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h1>{{ daten.titel|default('Vertretungsstunde') }}</h1>
+    <div class="meta">
+        {{ plan.klasse }} &middot; {{ plan.fach }} &middot; {{ plan.lesson_date|date('d.m.Y') }}
+        {% if plan.period %}&middot; {{ plan.period }}. Stunde{% endif %}
+        &middot; {{ plan.dauer }} Minuten
+    </div>
+
+    <h2>Einstieg</h2>
+    <div class="absatz">{{ daten.einstieg }}</div>
+
+    <h2>Arbeitsauftrag</h2>
+    <div class="absatz">{{ daten.arbeitsauftrag }}</div>
+
+    {% if daten.aufgaben|default([])|length > 0 %}
+        <h2>Aufgaben mit Lösungen</h2>
+        <ol>
+            {% for a in daten.aufgaben %}
+                <li>
+                    <div class="absatz">{{ a.aufgabe }}</div>
+                    <div class="loesung"><b>Lösung</b>{{ a.loesung }}</div>
+                </li>
+            {% endfor %}
+        </ol>
+    {% endif %}
+
+    <h2>Wenn es hakt</h2>
+    <table class="zwei">
+        <tr>
+            <td><strong>Kommt jemand nicht weiter</strong><br>{{ daten.differenzierung.leichter|default('') }}</td>
+            <td><strong>Ist jemand früh fertig</strong><br>{{ daten.differenzierung.schwerer|default('') }}</td>
+        </tr>
+    </table>
+
+    <h2>Ablauf</h2>
+    <table>
+        {% for z in daten.zeitplan|default([]) %}
+            <tr>
+                <td class="min">{{ z.minuten }} min</td>
+                <td>{{ z.abschnitt }}</td>
+                <td class="min">{{ z.sozialform }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+
+    <h2>Material</h2>
+    <div class="absatz">{{ daten.material }}</div>
+
+    <h2>Schluss</h2>
+    <div class="absatz">{{ daten.sicherung }}</div>
+
+    <div class="fuss">
+        Entwurf einer KI, freigegeben von der Fachlehrkraft{% if plan.released_at %} am {{ plan.released_at|date('d.m.Y') }}{% endif %}.
+        Erstellt am {{ erstellt_am }}. Nicht verstandene Stellen bitte auslassen und zurückmelden.
+    </div>
+</body>
+</html>

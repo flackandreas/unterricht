@@ -38,6 +38,17 @@ Ein modernes, webbasiertes System für Schulen zur Verwaltung von Hausaufgaben, 
 - Anonymes und strukturiertes Feedback von Schüler/innen an Lehrkräfte.
 - Grafische Auswertung von Feedback-Trends und Entwicklungen über Zeiträume hinweg.
 
+### 🎓 Unterricht live
+Zwei Funktionen im selben blinden Fleck: dem Geschehen in der Stunde selbst.
+
+- **Klassenlisten** (`admin_schueler.php`): Namen aus IServ oder Untis einfügen, eine Zeile je Person. „Mustermann, Max" und „Max Mustermann" ergeben denselben Schlüssel – wer schon abgegeben hat, wird automatisch mit seinem vorhandenen Lernfortschritt verknüpft. Ausscheiden heißt archivieren, nicht löschen. Gespeichert wird erst nach einer Vorschau.
+- **Beteiligung erfassen** (`live.php`): ein Tipp je Wortbeitrag, gebaut fürs Handy in der linken Hand. Der Bildschirm rät die laufende Stunde aus der eigenen Gewohnheit, statt sie erfragen zu lassen. Langes Drücken öffnet Gewichtung (kurz / solide / weiterführend) und Notiz, Wischen nach links nimmt zurück. **Funktioniert ohne Netz**: jeder Tipp landet sofort in einem Ausgangskorb und wird nachgeliefert, eine Kennung je Beitrag verhindert doppelte Zählung.
+- **Belege statt Note** (`live_report.php`): Anzahl, Mischung der Gewichte, Wochenverlauf und die einzelnen Beiträge mit Notizen. Bewusst **ohne Notenberechnung** – die mündliche Note ist eine pädagogische Ermessensentscheidung; ein Mittelwert aus Strichlisten wäre angreifbarer als ein begründetes Urteil.
+- **Wochenhinweis** auf dem Dashboard: wer seit über drei Wochen nicht drangekommen ist. Technisch der billigste Teil, pädagogisch der wertvollste.
+- **Vertretungsstunde** (`vertretung.php`): erzeugt aus den zuletzt behandelten Themen der Klasse eine anschlussfähige Stunde – Einstieg, Arbeitsauftrag, Aufgaben **mit ausgeschriebenen Lösungen** (Vertretung ist fast immer fachfremd), Differenzierung, Ablauf, Sicherung. Erst die Freigabe durch einen Menschen erzeugt Zugang und QR-Code fürs Lehrerzimmer; die Mappe öffnet sich ohne Anmeldung und lässt sich als PDF ausdrucken.
+
+**Bewusst nicht vorgesehen:** keine Spalte für Störungen (das machte aus einer Leistungsdokumentation eine Verhaltensakte), keine errechnete Note, keine Schüleransicht der Beteiligungswerte (sichtbare Zähler verwandeln das Unterrichtsgespräch in Punktesammeln).
+
 ### ⚙️ Administration & System
 - Verwaltung von Lehrkräften, Klassen und Fachzuordnungen.
 - Automatisiertes Datenbank-Migrationssystem für reibungslose Updates.
@@ -118,8 +129,10 @@ unterricht/
 ├── README.md                   # Projektdokumentation
 └── src/                        # Quellcode der Anwendung
     ├── app/                    # Domänenschicht (PSR-4, Namespace App\)
-    │   ├── Ai/                 # AIService, Antwortschema, Bildvorbereitung
+    │   ├── Ai/                 # AIService, Antwortschemata, Bildvorbereitung
     │   ├── Homework/           # Repository, SubmissionService, Warteschlange, Gamification
+    │   ├── Live/               # Klassenliste, Stunden, Beteiligung, Auswertung
+    │   ├── Substitute/         # Vertretungsstunden: Warteschlange und Ablauf
     │   └── Support/            # Datenbank, Migrationen, Audit, Aufbewahrung
     ├── bin/                    # CLI: migrate, worker, retention, migrate_uploads
     ├── config/                 # Konfigurationsdateien (DB, Mail, Untis)
@@ -134,7 +147,12 @@ unterricht/
     ├── vendor/                 # Composer-Abhängigkeiten
     ├── login_sso.php           # IServ OIDC OAuth2 Handler
     ├── admin_homework.php      # Hausaufgabenverwaltung für Lehrkräfte
+    ├── admin_schueler.php      # Klassenlisten pflegen (nur Verwaltung)
     ├── student_homework.php    # Hausaufgaben- & Gamification-Dashboard für Schüler
+    ├── live.php                # Beteiligung erfassen (+ live_action.php als Endpunkt)
+    ├── live_report.php         # Belegansicht der Beteiligung
+    ├── vertretung.php          # Vertretungsstunden anfordern und freigeben
+    ├── vertretung_view.php     # Vertretungsmappe per Token, ohne Anmeldung
     └── feedback_trends.php     # Feedback- & Trend-Analysen
 ```
 
@@ -156,16 +174,27 @@ keine einzige Datenbankabfrage.
 Als Netz läuft ein fehlender Satz weiterhin automatisch beim ersten Request an.
 Mit `AUTO_MIGRATE=0` lässt sich das abschalten.
 
+> **Kein Fremdschlüssel auf `teachers`.** In der SchulOS-Installation ist
+> `teachers` keine Tabelle, sondern eine View auf `db_feedback.teachers` – die
+> Suite teilt sich einen Benutzerbestand. MariaDB lehnt Fremdschlüssel auf
+> Views ab (errno 150, „Foreign key constraint is incorrectly formed"). Die
+> älteren Tabellen tragen ihre `teachers`-Verweise noch aus der Zeit davor;
+> **neue Migrationen dürfen keinen mehr anlegen.** Ein Index leistet für die
+> Abfragen dasselbe, die Zuordnung prüft die Anwendung.
+
 ---
 
 ## ⚙️ Hintergrundprozesse
 
-### Auswertungs-Worker (erforderlich)
+### Worker (erforderlich)
 
-Die KI-Auswertung läuft **asynchron**: Die Abgabe wird sofort quittiert und in
-die Warteschlange gestellt, ein Arbeitsprozess erledigt die Auswertung. Ohne
-laufenden Worker bleiben Abgaben in der Warteschlange stehen – sie gehen nicht
-verloren, werden aber auch nicht ausgewertet.
+Der Arbeitsprozess bedient **zwei** Warteschlangen:
+
+1. **KI-Auswertungen** – die Abgabe wird sofort quittiert und eingereiht. Ohne
+   laufenden Worker bleiben Abgaben stehen; sie gehen nicht verloren, werden
+   aber auch nicht ausgewertet.
+2. **Vertretungsstunden** – nachrangig. Eine Schülerin wartet auf ihr Feedback,
+   eine Vertretungsmappe wird erst am nächsten Morgen gebraucht.
 
 `docker-compose.yml` startet den Dienst mit. Manuell:
 
@@ -173,14 +202,21 @@ verloren, werden aber auch nicht ausgewertet.
 docker compose exec web php bin/worker.php --once
 ```
 
+> Der Worker ist ein **Dauerprozess**: nach einer Änderung an `bin/worker.php`
+> oder den davon genutzten Klassen muss er neu gestartet werden
+> (`docker compose restart worker`), sonst läuft weiter der alte Code.
+
 ### Löschkonzept (empfohlen als täglicher cron-Aufruf)
 
 Entfernt Hausaufgabenfotos nach Ablauf der je Aufgabe eingestellten Frist
-(Vorgabe 90 Tage). Das Feedback bleibt erhalten.
+(Vorgabe 90 Tage; das Feedback bleibt erhalten) und Beteiligungsdaten nach
+`PARTICIPATION_RETENTION_DAYS` (Vorgabe 400 Tage).
 
 ```bash
 docker compose exec web php bin/retention.php --apply
 ```
+
+Ohne `--apply` wird nur angezeigt, was gelöscht würde.
 
 ---
 
@@ -220,6 +256,26 @@ Bestandsdateien aus `public/uploads/` werden einmalig verschoben mit:
 ```bash
 docker compose exec web php bin/migrate_uploads.php --apply
 ```
+
+### Klassenlisten und Beteiligungsdaten
+Mit `students` liegen erstmals Namen Minderjähriger dauerhaft und zentral in
+dieser Anwendung. Das gehört ins Verzeichnis von Verarbeitungstätigkeiten und
+der Schulleitung vorgelegt, **bevor** die erste echte Liste eingefügt wird.
+
+| Schutz | Umsetzung |
+|---|---|
+| Zugriff nur auf eigene Klassen | Jede Abfrage in `Roster`, `ParticipationRepository` und den Controllern filtert über `teacher_classes` – in der Abfrage, nicht in der Oberfläche |
+| Keine fremden Personen erfassbar | `ParticipationRepository::record()` verwirft jede `student_id`, die nicht zur Klasse der Stunde gehört |
+| Pflege nur durch die Verwaltung | `admin_schueler.php` läuft unter `require_admin()`, jede Änderung landet im `audit_log` |
+| Nichts im Gerätespeicher | Der Service Worker nimmt `live.php` und `live_report.php` ausdrücklich vom Cache aus; der Offline-Ausgangskorb enthält Kennungen und Gewichte, keine Namen |
+| Befristete Aufbewahrung | `PARTICIPATION_RETENTION_DAYS`, umgesetzt von `bin/retention.php` |
+
+Vertretungsmappen sind über einen Token **ohne Anmeldung** erreichbar. Das ist
+vertretbar, weil sie keine Schülerdaten tragen – Klasse, Fach, Thema, Aufgaben.
+Der Token entsteht erst mit der Freigabe: ein Entwurf, den noch niemand gelesen
+hat, bekommt keine Adresse.
+
+Für den Demobetrieb gilt: **keine echte Klassenliste in die Demoinstanz.**
 
 ### Keine Drittanbieter im Browser der Schüler
 Schriften, QR-Codes, Avatare und alle JavaScript-Bibliotheken werden lokal
