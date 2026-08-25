@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Substitute;
 
 use App\Ai\AIService;
+use App\Homework\HomeworkRepository;
 use App\Live\LessonRepository;
 use App\Support\AuditLog;
 use App\Support\UsageRecorder;
@@ -23,12 +24,54 @@ final class PlanService
     /** So viele zurueckliegende Stundenthemen gehen in den Kontext. */
     private const THEMEN = 8;
 
+    /** So viele ausgewertete Hausaufgaben gehen in den Kontext. */
+    private const HAUSAUFGABEN = 3;
+
     public function __construct(
         private PDO $conn,
         private LessonRepository $lessons,
         private PlanQueue $queue,
-        private AuditLog $audit
+        private AuditLog $audit,
+        private HomeworkRepository $homework
     ) {}
+
+    /**
+     * Liest den festgehaltenen Kontext.
+     *
+     * Vertraegt beide Formen: die aeltere, in der nur die Themenliste
+     * gespeichert wurde, und die heutige mit Themen und Hausaufgaben. Ein
+     * Auftrag, der vor der Umstellung in die Warteschlange ging, soll nicht
+     * daran scheitern.
+     *
+     * @return array{themen:list<array<string,mixed>>,hausaufgaben:list<array<string,mixed>>}
+     */
+    public static function contextFromJson(?string $json): array
+    {
+        $daten = $json !== null && $json !== '' ? json_decode($json, true) : null;
+
+        if (!is_array($daten)) {
+            return ['themen' => [], 'hausaufgaben' => []];
+        }
+
+        // Aeltere Form: eine reine Liste von Themen.
+        if (!isset($daten['themen']) && !isset($daten['hausaufgaben'])) {
+            return [
+                'themen'       => array_values(array_filter($daten, 'is_array')),
+                'hausaufgaben' => [],
+            ];
+        }
+
+        return [
+            'themen'       => array_values(array_filter(
+                is_array($daten['themen'] ?? null) ? $daten['themen'] : [],
+                'is_array'
+            )),
+            'hausaufgaben' => array_values(array_filter(
+                is_array($daten['hausaufgaben'] ?? null) ? $daten['hausaufgaben'] : [],
+                'is_array'
+            )),
+        ];
+    }
 
     /**
      * Stellt eine Vertretungsstunde in die Warteschlange.
@@ -43,6 +86,7 @@ final class PlanService
         string $hinweis = ''
     ): int {
         $themen = $this->lessons->recentTopics($classId, $fach, self::THEMEN);
+        $hausaufgaben = $this->homework->summariesForClassSubject($classId, $fach, self::HAUSAUFGABEN);
 
         $this->conn->prepare('
             INSERT INTO substitute_plans
@@ -56,7 +100,7 @@ final class PlanService
             $period,
             max(20, min(120, $dauer)),
             mb_substr(trim($hinweis), 0, 500) ?: null,
-            json_encode($themen, JSON_UNESCAPED_UNICODE),
+            json_encode(['themen' => $themen, 'hausaufgaben' => $hausaufgaben], JSON_UNESCAPED_UNICODE),
         ]);
 
         $planId = (int)$this->conn->lastInsertId();
@@ -66,7 +110,14 @@ final class PlanService
             'vertretung_angefordert',
             'substitute_plan',
             $planId,
-            sprintf('%s, %s, %s (%d Themen im Kontext)', $fach, $datum, $classId, count($themen))
+            sprintf(
+                '%s, %s, Klasse %d (%d Themen, %d Hausaufgaben im Kontext)',
+                $fach,
+                $datum,
+                $classId,
+                count($themen),
+                count($hausaufgaben)
+            )
         );
 
         return $planId;
@@ -79,8 +130,9 @@ final class PlanService
      */
     public function generate(array $auftrag): void
     {
-        /** @var list<array{lesson_date:string,period:int,topic:string}> $themen */
-        $themen = json_decode((string)($auftrag['context_json'] ?? '[]'), true) ?: [];
+        $kontext = self::contextFromJson(
+            $auftrag['context_json'] !== null ? (string)$auftrag['context_json'] : null
+        );
 
         // Wie in SubmissionService: der Dienst entsteht je Auftrag, damit der
         // Tokenverbrauch der richtigen Lehrkraft zugeordnet wird.
@@ -89,7 +141,8 @@ final class PlanService
         $plan = $ai->generateSubstitutePlan(
             (string)$auftrag['klasse'],
             (string)$auftrag['fach'],
-            $themen,
+            $kontext['themen'],
+            $kontext['hausaufgaben'],
             (int)$auftrag['dauer'],
             (string)($auftrag['hinweis'] ?? '')
         );

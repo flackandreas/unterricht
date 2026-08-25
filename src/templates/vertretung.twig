@@ -96,14 +96,45 @@
         </p>
     {% elseif plan_daten %}
 
-        <p style="color: var(--text-muted); font-size: var(--text-sm);">
-            Grundlage: {% if kontext|length > 0 %}
-                {{ kontext|length }} Stundenthemen, zuletzt &bdquo;{{ kontext|last.topic }}&ldquo;
+        {# Woraus der Entwurf entstanden ist. Sichtbar, weil es den Unterschied
+           zwischen anschlussfaehiger Stunde und Lueckenfueller ausmacht - und
+           weil ein Schulbuch nicht dabei ist. #}
+        <div style="background: var(--bg-main); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-4); margin: var(--space-4) 0; font-size: var(--text-sm);">
+            <strong style="font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);">Grundlage des Entwurfs</strong>
+
+            <p style="margin: var(--space-2) 0 0 0;">
+                {% if themen|length > 0 %}
+                    {{ themen|length }} Stundenthemen, zuletzt &bdquo;{{ themen|last.topic }}&ldquo;
+                {% else %}
+                    <span style="color: var(--warning-color-dark);">kein Themenverlauf &ndash; die Stunde ist allgemein geblieben</span>
+                {% endif %}
+            </p>
+
+            {% if hausaufgaben|length > 0 %}
+                <p style="margin: var(--space-2) 0 0 0;">
+                    {{ hausaufgaben|length }} ausgewertete Hausaufgabe{{ hausaufgaben|length == 1 ? '' : 'n' }}, samt der häufigsten Fehler dieser Klasse:
+                </p>
+                <ul style="margin: var(--space-1) 0 0 0; padding-left: 1.2em; color: var(--text-muted);">
+                    {% for h in hausaufgaben %}
+                        <li>{{ h.titel }}</li>
+                    {% endfor %}
+                </ul>
             {% else %}
-                <span style="color: var(--warning-color-dark);">kein Themenverlauf &ndash; die Stunde ist allgemein geblieben</span>
+                <p style="margin: var(--space-2) 0 0 0; color: var(--text-muted);">
+                    Keine ausgewerteten Hausaufgaben in diesem Fach &ndash; die Aufgaben zielen aufs Thema,
+                    nicht auf die belegten Lücken der Klasse.
+                </p>
             {% endif %}
-            {% if plan.hinweis %}<br>Dein Hinweis: {{ plan.hinweis }}{% endif %}
-        </p>
+
+            {% if plan.hinweis %}
+                <p style="margin: var(--space-2) 0 0 0;">Dein Hinweis: {{ plan.hinweis }}</p>
+            {% endif %}
+
+            <p style="margin: var(--space-3) 0 0 0; font-size: var(--text-xs); color: var(--text-muted);">
+                Das Lehrwerk der Schule kennt die KI nicht. Die Aufgaben sind selbst erzeugt und
+                folgen nicht dem Buch &ndash; die Lösungen sind ungeprüft, bis du sie liest.
+            </p>
+        </div>
 
         <h4 style="margin-bottom: var(--space-2);">{{ plan_daten.titel }}</h4>
 

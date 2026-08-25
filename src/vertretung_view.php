@@ -14,13 +14,14 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/twig_setup.php';
 
+use App\Homework\HomeworkRepository;
 use App\Live\LessonRepository;
 use App\Substitute\PlanQueue;
 use App\Substitute\PlanService;
 use App\Support\AuditLog;
 
 $conn = db_connect();
-$service = new PlanService($conn, new LessonRepository($conn), new PlanQueue($conn), new AuditLog($conn));
+$service = new PlanService($conn, new LessonRepository($conn), new PlanQueue($conn), new AuditLog($conn), new HomeworkRepository($conn));
 
 $plan = $service->findByToken((string)($_GET['token'] ?? ''));
 

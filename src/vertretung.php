@@ -13,6 +13,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/request.php';
 require_once __DIR__ . '/includes/twig_setup.php';
 
+use App\Homework\HomeworkRepository;
 use App\Live\LessonRepository;
 use App\Substitute\PlanQueue;
 use App\Substitute\PlanService;
@@ -24,7 +25,7 @@ $conn = db_connect();
 $teacher_id = (int)get_current_user_id();
 
 $lessons = new LessonRepository($conn);
-$service = new PlanService($conn, $lessons, new PlanQueue($conn), new AuditLog($conn));
+$service = new PlanService($conn, $lessons, new PlanQueue($conn), new AuditLog($conn), new HomeworkRepository($conn));
 
 $stmt = $conn->prepare('
     SELECT c.id, c.name
@@ -57,8 +58,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($fach === '' || preg_match('/^\d{4}-\d{2}-\d{2}$/', $datum) !== 1) {
             $_SESSION['flash_error'] = 'Fach und Datum werden gebraucht.';
         } else {
-            $themen = $lessons->recentTopics($class_id, $fach, 8);
-
             $plan_id = $service->request(
                 $teacher_id,
                 $class_id,
@@ -69,10 +68,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (string)($_POST['hinweis'] ?? '')
             );
 
-            $_SESSION['flash_success'] = $themen === []
+            // Was tatsaechlich in den Kontext ging - festgehalten beim
+            // Anfordern, also genau das, was der Entwurf gesehen hat.
+            $angefordert = $service->find($plan_id, $teacher_id);
+            $kontext_neu = PlanService::contextFromJson(
+                $angefordert !== null && $angefordert['context_json'] !== null
+                    ? (string)$angefordert['context_json']
+                    : null
+            );
+
+            $_SESSION['flash_success'] = $kontext_neu['themen'] === []
                 ? 'Angefordert – aber für diese Klasse ist noch kein Themenverlauf hinterlegt. '
                     . 'Ohne ihn entsteht eine allgemeine Stunde.'
-                : sprintf('Angefordert. Der Entwurf entsteht aus %d Stundenthemen.', count($themen));
+                : sprintf(
+                    'Angefordert. Grundlage: %d Stundenthemen%s.',
+                    count($kontext_neu['themen']),
+                    $kontext_neu['hausaufgaben'] !== []
+                        ? sprintf(' und %d ausgewertete Hausaufgaben', count($kontext_neu['hausaufgaben']))
+                        : ''
+                );
 
             header('Location: /vertretung.php?id=' . $plan_id);
             exit;
@@ -97,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $plan = null;
 $plan_daten = null;
-$kontext = [];
+$kontext = ['themen' => [], 'hausaufgaben' => []];
 
 $id = (int)($_GET['id'] ?? 0);
 if ($id > 0) {
@@ -105,7 +119,9 @@ if ($id > 0) {
 
     if ($plan !== null) {
         $plan_daten = $plan['plan_json'] !== null ? json_decode((string)$plan['plan_json'], true) : null;
-        $kontext = json_decode((string)($plan['context_json'] ?? '[]'), true) ?: [];
+        $kontext = PlanService::contextFromJson(
+            $plan['context_json'] !== null ? (string)$plan['context_json'] : null
+        );
     }
 }
 
@@ -121,7 +137,8 @@ echo $twig->render('vertretung.twig', [
     'plaene'            => $service->forTeacher($teacher_id),
     'plan'              => $plan,
     'plan_daten'        => is_array($plan_daten) ? $plan_daten : null,
-    'kontext'           => $kontext,
+    'themen'            => $kontext['themen'],
+    'hausaufgaben'      => $kontext['hausaufgaben'],
     'heute'             => date('Y-m-d'),
     'host_url'          => request_base_url(),
     'current_user_name' => get_current_user_name(),

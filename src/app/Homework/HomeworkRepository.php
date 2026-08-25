@@ -211,6 +211,53 @@ final class HomeworkRepository
     /**
      * Anzahl abgebender Schuelerinnen und Schueler - fuer die Klassen-Quest.
      */
+    /**
+     * Ausgewertete Hausaufgaben einer Klasse in einem Fach.
+     *
+     * Grundlage fuer die Vertretungsstunde. Der Themenverlauf sagt nur, *was*
+     * behandelt wurde; hier steht, *woran die Klasse tatsaechlich gescheitert
+     * ist* - summary_common_errors entsteht aus den Korrekturen der ganzen
+     * Klasse. Damit zielt die Vertretungsstunde auf die belegten Luecken
+     * statt auf das Thema im Allgemeinen.
+     *
+     * homework_assignments fuehrt die Klasse als Namen, nicht als
+     * Fremdschluessel - die Verbindung laeuft deshalb ueber classes.name.
+     *
+     * Es verlaesst nichts Personenbezogenes die Anwendung: die
+     * Zusammenfassung ist ueber die ganze Klasse aggregiert, die
+     * Aufgabenstellung stammt von der Lehrkraft.
+     *
+     * @return list<array{titel:string,aufgabe:string,fehler:string}>
+     */
+    public function summariesForClassSubject(int $classId, string $fach, int $limit = 3): array
+    {
+        $limit = max(1, min(10, $limit));
+
+        $stmt = $this->conn->prepare("
+            SELECT a.title, a.description, a.summary_common_errors
+            FROM homework_assignments a
+            JOIN classes c ON c.name = a.klasse
+            WHERE c.id = ?
+              AND a.fach = ?
+              AND a.summary_common_errors IS NOT NULL
+              AND a.summary_common_errors <> ''
+            ORDER BY a.created_at DESC
+            LIMIT {$limit}
+        ");
+        $stmt->execute([$classId, $fach]);
+
+        $zeilen = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $zeilen[] = [
+                'titel'   => mb_substr((string)$r['title'], 0, 150),
+                'aufgabe' => mb_substr(trim((string)$r['description']), 0, 400),
+                'fehler'  => mb_substr(trim((string)$r['summary_common_errors']), 0, 400),
+            ];
+        }
+
+        return array_reverse($zeilen);
+    }
+
     public function distinctStudentCount(int $assignmentId): int
     {
         $stmt = $this->conn->prepare(

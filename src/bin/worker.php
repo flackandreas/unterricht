@@ -48,7 +48,7 @@ $service = new SubmissionService($conn, $repository, $queue, new Gamification($c
 // eine Schuelerin wartet auf ihr Feedback, eine Vertretungsmappe wird erst
 // am naechsten Morgen gebraucht.
 $plaene = new PlanQueue($conn);
-$planService = new PlanService($conn, new LessonRepository($conn), $plaene, new AuditLog($conn));
+$planService = new PlanService($conn, new LessonRepository($conn), $plaene, new AuditLog($conn), $repository);
 
 $laufend = true;
 $verarbeitet = 0;
