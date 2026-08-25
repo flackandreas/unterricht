@@ -1,7 +1,8 @@
-const CACHE_NAME = 'schul-app-v3';
+const CACHE_NAME = 'schul-app-v4';
 const urlsToCache = [
   '/css/app_styles.css',
-  '/js/app.js'
+  '/js/app.js',
+  '/js/live.js'
 ];
 
 self.addEventListener('install', event => {
@@ -32,7 +33,11 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.pathname === '/media.php' || url.pathname.startsWith('/uploads/')) return;
 
-  
+  // Erfassungsschirm und Auswertung tragen die komplette Klassenliste im
+  // Klartext. Der Code darf in den Cache, die Namen nicht - der Ausgangskorb
+  // in localStorage kommt ohnehin mit Kennungen statt Namen aus.
+  if (url.pathname === '/live.php' || url.pathname === '/live_report.php') return;
+
   // Network first, fallback to cache for HTML/PHP
   event.respondWith(
     fetch(event.request)

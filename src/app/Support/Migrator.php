@@ -45,6 +45,8 @@ final class Migrator
         'alter_audit_log.sql',
         'alter_homework_indexes.sql',
         'alter_students.sql',
+        'alter_lesson_sessions.sql',
+        'alter_participation.sql',
     ];
 
     private string $migrationDir;

@@ -139,6 +139,12 @@
             {% if not is_admin %}
             <li class="nav-label">Unterricht</li>
             <li class="nav-item">
+                <a href="/live.php" class="{{ is_current_page('live.php') ? 'active' : '' }}">
+                    <span class="nav-icon">{{ symbol.zeichne('blitz') }}</span>
+                    <span class="nav-text">Unterricht live</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="/admin_homework.php" class="{{ is_current_page('admin_homework.php') ? 'active' : '' }}">
                     <span class="nav-icon">{{ symbol.zeichne('buch') }}</span>
                     <span class="nav-text">Hausaufgaben (KI)</span>
