@@ -55,3 +55,6 @@ src/storage/migration-state
 # Werkzeug-Caches
 src/.phpunit.result.cache
 .phpunit.cache/
+
+# Prüfstand für den Erfassungsschirm (tests/pruefstand_live.php)
+src/public/_pruefstand*.html

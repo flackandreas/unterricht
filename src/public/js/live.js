@@ -26,7 +26,8 @@
 
     var ausgang = laden('events');
     var ruecknahmen = laden('removals');
-    var serverStand = cfg.stand || {};
+    // Ein leeres PHP-Array wird zu [], nicht zu {} - als Ablage taugt das nicht.
+    var serverStand = (cfg.stand && !Array.isArray(cfg.stand)) ? cfg.stand : {};
     var thema = cfg.topic || '';
     var themaGeaendert = false;
     var sendeZeitgeber = null;
@@ -300,15 +301,37 @@
     // ---------------------------------------------------------------
 
     var haltezeitgeber = null;
-    var langGedrueckt = false;
     var startX = 0;
+
+    /**
+     * Nach einem langen Druck und nach einem Wischer schickt der Browser noch
+     * einen click hinterher. Der darf keinen Beitrag zaehlen.
+     *
+     * Frueher merkte sich das ein Schalter, den erst der naechste click
+     * zuruecksetzte. Wurde das Blatt aber ueber "Abbrechen" oder durch die
+     * Auswahl eines Gewichts geschlossen, kam dieser click nie - und der
+     * naechste ganz normale Tipp ging still verloren. In einer Stunde heisst
+     * das: ein Beitrag fehlt, und niemand merkt es. Ein Zeitstempel kann nicht
+     * haengenbleiben.
+     */
+    var klickSperreBis = 0;
+
+    function sperreKlick() {
+        klickSperreBis = Date.now() + 500;
+    }
+
+    function klickGesperrt() {
+        return Date.now() < klickSperreBis;
+    }
+
+    /** Wann das Blatt geoeffnet wurde - siehe Hintergrundklick weiter unten. */
+    var blendeOffenSeit = 0;
 
     function binde(kachel) {
         var id = parseInt(kachel.dataset.studentId, 10);
 
         kachel.addEventListener('click', function () {
-            if (langGedrueckt) {
-                langGedrueckt = false;
+            if (klickGesperrt()) {
                 return;
             }
             erfasse(id, 2, 'freiwillig', null);
@@ -321,7 +344,7 @@
 
         function halten() {
             haltezeitgeber = window.setTimeout(function () {
-                langGedrueckt = true;
+                sperreKlick();
                 oeffneAuswahl(id, kachel.dataset.name);
             }, 500);
         }
@@ -347,10 +370,8 @@
             if (startX - ende > 50) {
                 // Wischen nach links nimmt den letzten Beitrag zurueck.
                 e.preventDefault();
-                langGedrueckt = true;
-                if (!nimmZurueck(id)) {
-                    langGedrueckt = false;
-                }
+                sperreKlick();
+                nimmZurueck(id);
             }
         });
     }
@@ -366,6 +387,7 @@
         blende.querySelector('#live-notiz').value = '';
         blende.querySelector('#live-aufgerufen').checked = false;
         blende.style.display = 'flex';
+        blendeOffenSeit = Date.now();
     }
 
     function schliesseAuswahl() {
@@ -373,6 +395,12 @@
         if (blende) {
             blende.style.display = 'none';
         }
+
+        // Der nachlaufende click des langen Drucks ist zu diesem Zeitpunkt
+        // laengst durch - wer das Blatt schliesst, hat den Finger schon
+        // gehoben. Die Sperre jetzt stehenzulassen wuerde den naechsten
+        // echten Tipp fressen.
+        klickSperreBis = 0;
     }
 
     // ---------------------------------------------------------------
@@ -384,7 +412,12 @@
     var blende = document.getElementById('live-auswahl');
     if (blende) {
         blende.addEventListener('click', function (e) {
-            if (e.target === blende) {
+            // Der Finger, der das Blatt durch langes Druecken geoeffnet hat,
+            // loest beim Loslassen noch einen click aus. Auf dem Handy sitzt
+            // das Blatt unten - bei einer Kachel in der oberen Haelfte trifft
+            // dieser click den Hintergrund und schloesse das Blatt sofort
+            // wieder. Die ersten Zehntelsekunden zaehlen deshalb nicht.
+            if (e.target === blende && Date.now() - blendeOffenSeit > 400) {
                 schliesseAuswahl();
             }
         });

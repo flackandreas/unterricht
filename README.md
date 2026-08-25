@@ -228,6 +228,15 @@ docker compose exec web composer analyse   # PHPStan Level 6
 docker compose exec web php tests/compile_templates.php
 ```
 
+Den Erfassungsschirm ohne Anmeldung bedienen - fuer Aenderungen an `live.js`:
+
+```bash
+docker compose exec web php tests/pruefstand_live.php > src/public/_pruefstand.html
+```
+
+Danach `http://localhost:8889/_pruefstand.html` oeffnen und die Datei wieder
+loeschen. Ueber `window.PRUEFSTAND.offline` laesst sich das Netz abschalten.
+
 GitHub Actions führt zusätzlich einen Migrationslauf gegen ein leeres Schema aus.
 
 ---
