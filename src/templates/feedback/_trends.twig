@@ -1,0 +1,65 @@
+{#
+    Tab „Entwicklung": Verlauf der Bewertungen über die Zeit.
+    Die Liste vergangener Sitzungen ist in den Sitzungen-Tab umgezogen –
+    hier geht es ausschließlich um den Verlauf.
+#}
+<div class="content-box" style="margin-bottom: 30px;">
+    <form method="GET" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+        <input type="hidden" name="tab" value="trends">
+
+        <div class="form-group" style="margin: 0;">
+            <label for="filter-klasse" style="display: block; margin-bottom: 5px; font-size: 0.9em;">Klasse filtern</label>
+            <select id="filter-klasse" name="klasse" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">Alle Klassen</option>
+                {% for k in unique_classes %}
+                    <option value="{{ k }}"{{ current_klasse == k ? ' selected' : '' }}>{{ k }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group" style="margin: 0;">
+            <label for="filter-fach" style="display: block; margin-bottom: 5px; font-size: 0.9em;">Fach filtern</label>
+            <select id="filter-fach" name="fach" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">Alle Fächer</option>
+                {% for s in unique_subjects %}
+                    <option value="{{ s }}"{{ current_fach == s ? ' selected' : '' }}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="btn" style="background-color: var(--primary-color); color: white; border: none; padding: 11px 25px; border-radius: 4px; cursor: pointer;">Filtern</button>
+
+        {% if current_klasse or current_fach %}
+            <a href="/feedback.php?tab=trends" style="padding: 11px 15px; text-decoration: none; color: var(--text-muted);">Zurücksetzen</a>
+        {% endif %}
+    </form>
+</div>
+
+{% if grouped_history is empty %}
+    <div class="content-box">
+        <p style="text-align: center; color: var(--text-muted); padding: 40px 20px; margin: 0;">
+            {% if current_klasse or current_fach %}
+                Für diesen Filter liegen keine Daten vor.
+            {% else %}
+                Noch keine ausgewerteten Sitzungen vorhanden.
+                <a href="/feedback.php" style="color: var(--primary-color);">Erste Feedback-Runde starten →</a>
+            {% endif %}
+        </p>
+    </div>
+{% else %}
+    <p style="color: var(--text-muted); font-size: 0.9em; margin: 0 0 15px 0;">
+        {{ session_count }} Sitzung{{ session_count == 1 ? '' : 'en' }} in
+        {{ grouped_history|length }} Gruppe{{ grouped_history|length == 1 ? '' : 'n' }}.
+    </p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 500px), 1fr)); gap: 20px;">
+        {% for group_name, group in grouped_history %}
+            <div class="content-box" style="margin-bottom: 0;">
+                <h3 style="margin-top: 0;">Stimmungs-Barometer: {{ group_name }}</h3>
+                <div style="height: 350px; margin-top: 20px; position: relative;">
+                    <canvas id="trendChart_{{ loop.index }}"></canvas>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}

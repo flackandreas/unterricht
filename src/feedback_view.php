@@ -19,7 +19,7 @@ $stmt->execute([$session_id, get_current_user_id()]);
 $session = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$session) {
-    error_page("Sitzung nicht gefunden", "Sie existiert nicht oder gehört einer anderen Lehrkraft.", 404, "/teacher_feedback.php");
+    error_page("Sitzung nicht gefunden", "Sie existiert nicht oder gehört einer anderen Lehrkraft.", 404, "/feedback.php");
 }
 
 // 2. Fetch questions

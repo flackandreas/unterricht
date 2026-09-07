@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $csrf_token = $_POST['csrf_token'] ?? '';
     if (!verify_csrf_token($csrf_token)) {
         $_SESSION['flash_error'] = "Sicherheitsfehler: Ungültiger Token. Bitte laden Sie die Seite neu.";
-        header("Location: /teacher_feedback.php");
+        header("Location: /feedback.php");
         exit;
     }
 
@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         
         if (empty($klasse) || empty($fach)) {
             $_SESSION['flash_error'] = "Bitte Klasse und Fach angeben.";
-            header("Location: /teacher_feedback.php");
+            header("Location: /feedback.php");
             exit;
         }
         
@@ -139,6 +139,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
     }
     
-    header("Location: /teacher_feedback.php");
+    header("Location: /feedback.php");
     exit;
 }

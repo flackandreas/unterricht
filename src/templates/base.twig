@@ -9,7 +9,7 @@
     <!-- Quick external font fallback to match the app style vibes -->
     <link href="{{ asset('/css/fonts.css') }}" rel="stylesheet">
     <!-- SweetAlert2 CDN -->
-    <script src="/vendor/sweetalert2/sweetalert2.all.min.js"></script>
+    <script src="{{ asset('/vendor/sweetalert2/sweetalert2.all.min.js') }}"></script>
     <script src="{{ asset('/js/app.js') }}" defer></script>
     <style>
         /* Fallback quick fixes if app_styles.css isn't perfectly carrying over all resets */
@@ -167,15 +167,12 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a href="/teacher_feedback.php" class="{{ is_current_page('teacher_feedback.php') ? 'active' : '' }}">
-                    <span class="nav-icon">{{ symbol.zeichne('blitz') }}</span>
-                    <span class="nav-text">Schüler-Feedback</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="/feedback_trends.php" class="{{ is_current_page('feedback_trends.php') ? 'active' : '' }}">
+                {# Sitzungen, Auswertung und Verlauf sind ein Arbeitsablauf und
+                   liegen deshalb unter einem Punkt. feedback_view.php ist die
+                   Detailseite dazu und hält den Punkt ebenfalls aktiv. #}
+                <a href="/feedback.php" class="{{ is_current_page('feedback.php') or is_current_page('feedback_view.php') ? 'active' : '' }}">
                     <span class="nav-icon">{{ symbol.zeichne('trend') }}</span>
-                    <span class="nav-text">Trend-Analyse</span>
+                    <span class="nav-text">Feedback &amp; Trends</span>
                 </a>
             </li>
             {% endif %}

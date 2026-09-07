@@ -1,0 +1,118 @@
+{% extends "base.twig" %}
+
+{% block extra_head %}
+{% if tab == 'trends' %}
+    <script src="{{ asset('/vendor/chartjs/chart.umd.min.js') }}"></script>
+{% endif %}
+<style>
+    /* Tabs des Feedback-Bereichs */
+    .tab-leiste {
+        display: flex;
+        gap: 4px;
+        border-bottom: 2px solid var(--border-color);
+        margin-bottom: 25px;
+        overflow-x: auto;
+    }
+    .tab-leiste a {
+        padding: 12px 22px;
+        text-decoration: none;
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 0.95em;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        white-space: nowrap;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-leiste a:hover { color: var(--text-dark); }
+    .tab-leiste a.aktiv {
+        color: var(--primary-color);
+        border-bottom-color: var(--primary-color);
+    }
+    .tab-leiste .tab-zaehler {
+        display: inline-block;
+        background: var(--primary-color);
+        color: #fff;
+        font-size: 0.75em;
+        font-weight: 700;
+        line-height: 1;
+        padding: 3px 7px;
+        border-radius: 10px;
+        margin-left: 6px;
+        vertical-align: middle;
+    }
+
+    /* QR-Großansicht */
+    .qr-modal {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        inset: 0;
+        background-color: rgba(0,0,0,0.85);
+        backdrop-filter: blur(5px);
+        justify-content: center;
+        align-items: center;
+        cursor: zoom-out;
+    }
+    .qr-modal.active { display: flex; }
+    .qr-modal-content {
+        background-color: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        text-align: center;
+        max-width: 90%;
+        max-height: 90%;
+        transform: scale(0.8);
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .qr-modal.active .qr-modal-content { transform: scale(1); }
+    .qr-large { width: 100%; max-width: 500px; height: auto; border: 15px solid white; }
+    .close-modal {
+        position: absolute;
+        top: 20px;
+        right: 30px;
+        color: white;
+        font-size: 40px;
+        font-weight: bold;
+        cursor: pointer;
+        background: none;
+        border: none;
+        padding: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <h1 style="margin: 0 0 4px 0;">Feedback &amp; Trends</h1>
+    <p style="color: var(--text-muted); margin: 0;">
+        Rückmeldungen der Klasse einholen, auswerten und die Entwicklung über die Zeit verfolgen.
+    </p>
+</div>
+
+<nav class="tab-leiste">
+    <a href="/feedback.php" class="{{ tab == 'sitzungen' ? 'aktiv' : '' }}">
+        Sitzungen
+        {% if active_session %}<span class="tab-zaehler" title="Sitzung läuft">live</span>{% endif %}
+    </a>
+    <a href="/feedback.php?tab=trends" class="{{ tab == 'trends' ? 'aktiv' : '' }}">Entwicklung</a>
+</nav>
+
+{% if flash_success %}<div class="status success" style="margin-bottom: 20px;">{{ flash_success }}</div>{% endif %}
+{% if flash_error %}<div class="status error" style="margin-bottom: 20px;">{{ flash_error }}</div>{% endif %}
+
+{% if tab == 'trends' %}
+    {% include 'feedback/_trends.twig' %}
+{% else %}
+    {% include 'feedback/_sessions.twig' %}
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+{% if tab == 'trends' %}
+    {% include 'feedback/_trends_scripts.twig' %}
+{% else %}
+    {% include 'feedback/_sessions_scripts.twig' %}
+{% endif %}
+{% endblock %}

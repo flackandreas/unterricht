@@ -39,8 +39,13 @@ $twig->addFunction(new \Twig\TwigFunction('asset', function (string $pfad): stri
     return $pfad . '?v=' . $stand;
 }));
 
-$twig->addFunction(new \Twig\TwigFunction('is_current_page', function ($page) {
-    return basename($_SERVER['PHP_SELF']) === $page;
+$twig->addFunction(new \Twig\TwigFunction('is_current_page', function (string $page): bool {
+    // Der Router hinterlegt den tatsaechlich geladenen Controller. Ohne ihn
+    // faellt die Pruefung auf PHP_SELF zurueck - das trifft nur zu, wenn eine
+    // Datei ausnahmsweise direkt aufgerufen wird.
+    $aktuell = $GLOBALS['current_controller'] ?? basename($_SERVER['PHP_SELF'] ?? '');
+
+    return basename((string)$aktuell) === $page;
 }));
 
 // Add json_decode filter

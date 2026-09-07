@@ -1,13 +1,13 @@
 {% extends "base.twig" %}
 
 {% block extra_head %}
-<script src="/vendor/chartjs/chart.umd.min.js"></script>
+<script src="{{ asset('/vendor/chartjs/chart.umd.min.js') }}"></script>
 {% endblock %}
 
 {% block content %}
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; gap: 20px; flex-wrap: wrap;">
     <div>
-        <a href="/index.php" style="text-decoration: none; color: var(--text-muted); font-size: 0.9em;">← Zurück zum Dashboard</a>
+        <a href="/feedback.php" style="text-decoration: none; color: var(--text-muted); font-size: 0.9em;">&larr; Zurück zu Feedback &amp; Trends</a>
         <h1>Ergebnisse: {{ session.klasse }} - {{ session.fach }}</h1>
         <p style="color: var(--text-muted); margin-top: 5px;">Sitzung vom {{ session.created_at|date('d.m.Y H:i') }}</p>
     </div>

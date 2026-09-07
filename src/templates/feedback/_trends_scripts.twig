@@ -1,0 +1,72 @@
+{# Verlaufsdiagramme des Entwicklungs-Tabs. #}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var farben = ['#4a90e2', '#27ae60', '#f39c12', '#9b59b6', '#e74c3c'];
+    var emojis = { 1: '😫', 2: '🙁', 3: '😐', 4: '🙂', 5: '😄' };
+
+    // Die Daten kommen als JSON aus dem Controller statt als generiertes
+    // JavaScript - so kann kein Fragetext die Skriptausgabe zerlegen.
+    var gruppen = {{ grouped_history|default({})|json_encode|raw }};
+
+    Object.keys(gruppen).forEach(function (name, index) {
+        var ctx = document.getElementById('trendChart_' + (index + 1));
+        if (!ctx) return;
+
+        var sitzungen = gruppen[name].sessions || [];
+        var beschriftungen = sitzungen.map(function (s) {
+            var d = new Date(s.created_at.replace(' ', 'T'));
+            return isNaN(d) ? s.created_at : ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.';
+        });
+
+        // Je Fragetext eine Kurve; fehlende Werte bleiben Lücken.
+        var kurven = {};
+        sitzungen.forEach(function (s, i) {
+            (s.questions || []).forEach(function (q) {
+                if (!kurven[q.text]) {
+                    kurven[q.text] = new Array(sitzungen.length).fill(null);
+                }
+                kurven[q.text][i] = q.avg;
+            });
+        });
+
+        var datensaetze = Object.keys(kurven).map(function (text, i) {
+            return {
+                label: text,
+                data: kurven[text],
+                borderColor: farben[i % farben.length],
+                backgroundColor: farben[i % farben.length],
+                tension: 0.3,
+                pointRadius: 5,
+                spanGaps: true
+            };
+        });
+
+        new Chart(ctx, {
+            type: 'line',
+            data: { labels: beschriftungen, datasets: datensaetze },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        min: 1,
+                        max: 5,
+                        ticks: {
+                            callback: function (wert) { return emojis[wert] || wert; }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function (kontext) {
+                                return kontext.dataset.label + ': ' + kontext.parsed.y.toFixed(1);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+});
+</script>

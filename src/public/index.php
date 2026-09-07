@@ -67,7 +67,8 @@ $routes = [
     'student/homework' => 'student_homework.php',
     'media' => 'media.php',
     'student/feedback' => 'student_feedback.php',
-    'feedback/trends' => 'feedback_trends.php',
+    'feedback' => 'feedback.php',
+    'feedback/trends' => 'feedback.php',
     'feedback/view' => 'feedback_view.php'
 ];
 
@@ -91,6 +92,11 @@ if (array_key_exists($request, $routes)) {
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/migrations.php';
 run_all_migrations();
+
+// Welcher Controller tatsaechlich laeuft. is_current_page() braucht das:
+// $_SERVER['PHP_SELF'] ist hinter dem Front Controller immer "index.php",
+// weshalb bisher kein einziger Navigationspunkt hervorgehoben wurde.
+$GLOBALS['current_controller'] = $file;
 
 $controllerPath = __DIR__ . '/../' . $file;
 
