@@ -26,3 +26,11 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 RUN echo "upload_max_filesize = 40M" > /usr/local/etc/php/conf.d/uploads.ini \
     && echo "post_max_size = 45M" >> /usr/local/etc/php/conf.d/uploads.ini \
     && echo "memory_limit = 256M" >> /usr/local/etc/php/conf.d/uploads.ini
+
+# Die Ablage liegt bei einem bind-mount ausserhalb des Abbilds - die Rechte
+# muessen deshalb beim Start gesetzt werden, nicht beim Bauen.
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["apache2-foreground"]
