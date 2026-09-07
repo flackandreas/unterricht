@@ -327,6 +327,17 @@
     /** Wann das Blatt geoeffnet wurde - siehe Hintergrundklick weiter unten. */
     var blendeOffenSeit = 0;
 
+    /**
+     * Ob der lange Druck gerade das Blatt geoeffnet hat.
+     *
+     * Nach dem Loslassen schickt der Browser einen click auf das Element, das
+     * jetzt unter dem Finger liegt - und das ist inzwischen das Blatt. Landete
+     * er auf dem Hintergrund, schloss sich das Blatt im selben Moment wieder;
+     * landete er auf einem Gewichtsknopf, wurde ungefragt ein Gewicht gebucht.
+     * In beiden Faellen kam man an die Auswahl gar nicht heran.
+     */
+    var blattDurchDruck = false;
+
     function binde(kachel) {
         var id = parseInt(kachel.dataset.studentId, 10);
 
@@ -344,6 +355,7 @@
 
         function halten() {
             haltezeitgeber = window.setTimeout(function () {
+                blattDurchDruck = true;
                 sperreKlick();
                 oeffneAuswahl(id, kachel.dataset.name);
             }, 500);
@@ -366,12 +378,22 @@
 
         kachel.addEventListener('touchend', function (e) {
             loslassen();
+
             var ende = e.changedTouches[0].clientX;
             if (startX - ende > 50) {
                 // Wischen nach links nimmt den letzten Beitrag zurueck.
                 e.preventDefault();
                 sperreKlick();
                 nimmZurueck(id);
+                blattDurchDruck = false;
+                return;
+            }
+
+            if (blattDurchDruck) {
+                // Das Blatt ist offen und liegt unter dem Finger. Ohne dies
+                // folgt ein click darauf, sobald der Finger sich hebt.
+                e.preventDefault();
+                blattDurchDruck = false;
             }
         });
     }
@@ -396,6 +418,8 @@
             blende.style.display = 'none';
         }
 
+        blattDurchDruck = false;
+
         // Der nachlaufende click des langen Drucks ist zu diesem Zeitpunkt
         // laengst durch - wer das Blatt schliesst, hat den Finger schon
         // gehoben. Die Sperre jetzt stehenzulassen wuerde den naechsten
@@ -412,11 +436,10 @@
     var blende = document.getElementById('live-auswahl');
     if (blende) {
         blende.addEventListener('click', function (e) {
-            // Der Finger, der das Blatt durch langes Druecken geoeffnet hat,
-            // loest beim Loslassen noch einen click aus. Auf dem Handy sitzt
-            // das Blatt unten - bei einer Kachel in der oberen Haelfte trifft
-            // dieser click den Hintergrund und schloesse das Blatt sofort
-            // wieder. Die ersten Zehntelsekunden zaehlen deshalb nicht.
+            // Der nachlaufende click wird schon in touchend unterdrueckt.
+            // Diese Frist bleibt als Netz fuer Browser, die ihn trotzdem
+            // durchreichen - ein absichtlicher Tipp auf den Hintergrund kommt
+            // ohnehin erst deutlich spaeter.
             if (e.target === blende && Date.now() - blendeOffenSeit > 400) {
                 schliesseAuswahl();
             }
