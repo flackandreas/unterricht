@@ -48,6 +48,7 @@ final class Migrator
         'alter_lesson_sessions.sql',
         'alter_participation.sql',
         'alter_substitute_plans.sql',
+        'alter_portal_konten.sql',
     ];
 
     private string $migrationDir;
@@ -56,7 +57,32 @@ final class Migrator
     public function __construct(?string $migrationDir = null, ?string $stateFile = null)
     {
         $this->migrationDir = $migrationDir ?? dirname(__DIR__, 2);
-        $this->stateFile = $stateFile ?? dirname(__DIR__, 2) . '/storage/migration-state';
+        $this->stateFile = $stateFile ?? self::vorgabeVermerk();
+    }
+
+    /**
+     * Wo der Vermerk liegt, dass ein Migrationssatz vollstaendig durchlief.
+     *
+     * Bewusst NICHT in storage/: dieses Verzeichnis wird vom Host eingehaengt
+     * und dadurch von jedem Container geteilt, der dasselbe Arbeitsverzeichnis
+     * benutzt. Genau daran ist es gescheitert - ein Container spielte die
+     * Migrationen in seine Datenbank ein und schrieb den Vermerk, ein zweiter
+     * mit derselben Quelle, aber einer anderen Datenbank, hielt sich daraufhin
+     * fuer fertig und lief gegen ein Schema ohne die neue Tabelle.
+     *
+     * Im temporaeren Verzeichnis hat jeder Container seinen eigenen Vermerk.
+     * Der Preis ist ein Migrationslauf je Containerstart statt einer je
+     * Bereitstellung; die Datenbank fuehrt ohnehin Buch darueber, was schon
+     * eingespielt ist, sodass nichts doppelt laeuft.
+     */
+    private static function vorgabeVermerk(): string
+    {
+        $kennung = substr(hash(
+            'sha256',
+            (string) env('DB_HOST', 'db') . '|' . (string) env('DB_NAME', 'db_unterricht')
+        ), 0, 12);
+
+        return sys_get_temp_dir() . '/unterricht-migrationen-' . $kennung;
     }
 
     /**

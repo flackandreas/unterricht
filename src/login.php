@@ -9,6 +9,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/error_page.php';
 require_once __DIR__ . '/includes/request.php';
 require_once __DIR__ . '/includes/rate_limit.php';
+require_once __DIR__ . '/includes/sso.php';
 require_once __DIR__ . '/includes/twig_setup.php';
 
 // Redirect to dashboard if already logged in
@@ -17,8 +18,20 @@ if (is_logged_in()) {
     exit;
 }
 
-// Check for autologin token
-if (isset($_GET['autologin']) && $_GET['autologin'] === '1') {
+$portalAktiv = sso_aktiv();
+
+// Am Portal ist die oertliche Maske nicht der Regelweg. Sie bleibt unter
+// /login.php?lokal=1 erreichbar - fuer den Fall, dass das Portal steht und
+// jemand trotzdem an die Anwendung muss.
+if ($portalAktiv && !isset($_GET['lokal']) && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: /sso_start.php');
+    exit;
+}
+
+// Anmeldung ueber einen Token in der Adresszeile. Stammt aus der Zeit, als
+// sich zwei Module gegenseitig verlinkt haben; am Portal wird sie nicht mehr
+// gebraucht und ist deshalb dort aus.
+if (!$portalAktiv && isset($_GET['autologin']) && $_GET['autologin'] === '1') {
     $kuerzel = trim($_GET['kuerzel'] ?? '');
     $token = $_GET['token'] ?? '';
     
@@ -125,5 +138,8 @@ unset($_SESSION['flash_error']);
 echo $twig->render('login.twig', [
     'csrf_token' => $csrf_token,
     'flash_error' => $flash_error,
-    'is_logged_in' => false
+    'is_logged_in' => false,
+    'portal_aktiv' => $portalAktiv,
+    'portal_adresse' => sso_portal_adresse(),
+    'iserv_aktiv' => (string) env('ISERV_HOST', '') !== '' && (string) env('ISERV_CLIENT_ID', '') !== '',
 ]);

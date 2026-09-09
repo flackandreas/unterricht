@@ -7,8 +7,44 @@ Ein modernes, webbasiertes System für Schulen zur Verwaltung von Hausaufgaben, 
 ## 🌟 Hauptfunktionen
 
 ### 🔑 Authentifizierung & SSO
+- **SchulOS-Portal**: Läuft das Modul an einem Portal, ist die Anmeldung dort zuhause — eine Anmeldung für alle Module der Schule. Siehe [Betrieb am SchulOS-Portal](#betrieb-am-schulos-portal).
 - **IServ OIDC Integration**: Nahtloses Single Sign-On (SSO) für Lehrkräfte und Schüler/innen über die schuleigene IServ-Instanz (OpenID Connect).
 - **Klassische Anmeldung**: Anmeldefunktion mit Benutzername/E-Mail und Passwort inklusive Passwort-Zusendung und Passwort-Änderung.
+
+---
+
+## Betrieb am SchulOS-Portal
+
+Das Modul läuft in zwei Betriebsarten. Welche gilt, entscheidet allein die
+Konfiguration — im Code gibt es keinen Schalter.
+
+**Allein.** Ohne `PORTAL_*` in der `.env` verhält sich alles wie bisher: eigene
+Anmeldemaske, eigene Konten, wahlweise IServ. Nichts an dieser Betriebsart hat
+sich geändert.
+
+**Am Portal.** Sind `PORTAL_ISSUER`, `PORTAL_CLIENT_ID`, `PORTAL_CLIENT_SECRET`
+und `PORTAL_REDIRECT_URI` gesetzt, führt `/login.php` zum Portal. Von dort
+kommt die Lehrkraft angemeldet zurück; ein Konto wird beim ersten Mal
+angelegt, ein vorhandenes über das Kürzel übernommen. Verknüpft wird danach
+über die dauerhafte Kennung des Portals (Tabelle `portal_konten`), nicht über
+das Kürzel — Kürzel werden an Schulen nach Jahren neu vergeben.
+
+Wer im Portal in einer der Gruppen aus `PORTAL_ADMIN_GRUPPEN` steht, hat hier
+Verwaltungsrechte. Das Portal ist die führende Quelle: Änderungen dort wirken
+bei der nächsten Anmeldung.
+
+Die örtliche Maske bleibt unter `/login.php?lokal=1` erreichbar, falls das
+Portal einmal steht.
+
+| Route | |
+|---|---|
+| `/sso/start` | Anmeldung am Portal beginnen |
+| `/sso/rueckweg` | Rückweg vom Portal |
+| `/sso/abmelden` | Abmeldung über den Vorderkanal |
+| `/healthz` | Lebenszeichen für das Portal |
+
+Der Ablauf steckt im Paket `schulos/sso`; nach Änderungen daran muss hier
+`composer update schulos/sso` laufen.
 
 ### 📚 Hausaufgaben-Management
 - **Lehrkräfte-Verwaltung**: Erstellen, Bearbeiten und Archivieren von Hausaufgaben pro Klasse und Fach. Zuordnung von Erwartungshorizonten, Dateianhängen und Abgabefristen.

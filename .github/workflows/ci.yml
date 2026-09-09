@@ -28,6 +28,20 @@ jobs:
           key: composer-${{ hashFiles('src/composer.lock') }}
           restore-keys: composer-
 
+      - name: SSO-Paket bereitstellen
+        working-directory: src
+        run: |
+          # schulos/sso wird ueber ein Pfad-Repository im Nachbarverzeichnis
+          # eingebunden. Das gibt es hier nicht - die mitgelieferte Fassung in
+          # vendor/ ist aber dieselbe und wird versioniert. Sobald das Paket
+          # auf GitHub liegt, wird aus dem Pfad- ein VCS-Repository und dieser
+          # Schritt entfaellt.
+          if [ ! -d ../../schulos-sso ]; then
+            mkdir -p ../../schulos-sso
+            cp -R vendor/schulos/sso/. ../../schulos-sso/
+            echo "schulos/sso aus vendor/ bereitgestellt"
+          fi
+
       - name: Abhängigkeiten installieren
         working-directory: src
         run: composer install --no-interaction --no-progress --prefer-dist
@@ -74,6 +88,20 @@ jobs:
           php-version: '8.2'
           extensions: pdo_mysql, gd, exif, mbstring
           tools: composer:v2
+
+      - name: SSO-Paket bereitstellen
+        working-directory: src
+        run: |
+          # schulos/sso wird ueber ein Pfad-Repository im Nachbarverzeichnis
+          # eingebunden. Das gibt es hier nicht - die mitgelieferte Fassung in
+          # vendor/ ist aber dieselbe und wird versioniert. Sobald das Paket
+          # auf GitHub liegt, wird aus dem Pfad- ein VCS-Repository und dieser
+          # Schritt entfaellt.
+          if [ ! -d ../../schulos-sso ]; then
+            mkdir -p ../../schulos-sso
+            cp -R vendor/schulos/sso/. ../../schulos-sso/
+            echo "schulos/sso aus vendor/ bereitgestellt"
+          fi
 
       - name: Abhängigkeiten installieren
         working-directory: src

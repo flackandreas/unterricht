@@ -69,7 +69,12 @@ $routes = [
     'student/feedback' => 'student_feedback.php',
     'feedback' => 'feedback.php',
     'feedback/trends' => 'feedback.php',
-    'feedback/view' => 'feedback_view.php'
+    'feedback/view' => 'feedback_view.php',
+    // Anbindung an das SchulOS-Portal
+    'sso/start' => 'sso_start.php',
+    'sso/rueckweg' => 'sso_rueckweg.php',
+    'sso/abmelden' => 'sso_abmelden.php',
+    'healthz' => 'healthz.php'
 ];
 
 // Fallback for legacy .php requests or exact matches

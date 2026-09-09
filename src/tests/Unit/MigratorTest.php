@@ -87,4 +87,50 @@ final class MigratorTest extends TestCase
 
         self::assertSame(array_values(array_unique($dateien)), array_values($dateien));
     }
+
+    /**
+     * Der Vermerk gilt fuer eine bestimmte Datenbank, nicht nur fuer den Code.
+     *
+     * Ohne diese Trennung reichte es, dass ein zweiter Container mit
+     * demselben eingehaengten src/ auf eine andere Datenbank zeigte: der eine
+     * spielte die Migrationen ein und schrieb den Vermerk, der andere hielt
+     * sich daraufhin fuer fertig und lief gegen ein Schema ohne die neue
+     * Tabelle.
+     */
+    public function testVermerkUnterscheidetDieDatenbank(): void
+    {
+        $lies = static function (): string {
+            $eigenschaft = new \ReflectionProperty(Migrator::class, 'stateFile');
+
+            return (string) $eigenschaft->getValue(new Migrator());
+        };
+
+        $vorher = [$_ENV['DB_HOST'] ?? null, $_ENV['DB_NAME'] ?? null];
+
+        $_ENV['DB_HOST'] = 'db';
+        $_ENV['DB_NAME'] = 'db_unterricht';
+        $eine = $lies();
+
+        $_ENV['DB_NAME'] = 'db_unterricht_zweite_schule';
+        $andere = $lies();
+
+        $_ENV['DB_HOST'] = 'anderer-host';
+        $_ENV['DB_NAME'] = 'db_unterricht';
+        $dritte = $lies();
+
+        [$_ENV['DB_HOST'], $_ENV['DB_NAME']] = $vorher;
+        foreach (['DB_HOST', 'DB_NAME'] as $name) {
+            if ($_ENV[$name] === null) {
+                unset($_ENV[$name]);
+            }
+        }
+
+        self::assertNotSame($eine, $andere, 'Zwei Datenbanken brauchen zwei Vermerke.');
+        self::assertNotSame($eine, $dritte, 'Zwei Hosts brauchen zwei Vermerke.');
+
+        // Nicht in storage/: das Verzeichnis wird vom Host eingehaengt und
+        // von jedem Container geteilt, der dieselbe Quelle benutzt.
+        self::assertStringNotContainsString('/storage/', $eine);
+        self::assertStringStartsWith(sys_get_temp_dir(), $eine);
+    }
 }

@@ -7,10 +7,20 @@
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/request.php';
+require_once __DIR__ . '/includes/sso.php';
 require_once __DIR__ . '/includes/migrations.php';
 run_all_migrations();
 
 require_login();
+
+// Am SchulOS-Portal ist die Modulauswahl dort zuhause. Ohne Portal bleibt die
+// alte Auswahlseite bestehen, damit eine Schule dieses Modul auch allein
+// betreiben kann.
+if (sso_aktiv()) {
+    $portal = sso_portal_adresse();
+    header('Location: ' . ($portal !== '' ? $portal . '/' : '/dashboard'));
+    exit;
+}
 
 $user_name = get_current_user_name();
 
