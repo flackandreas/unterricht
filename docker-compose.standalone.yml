@@ -44,6 +44,8 @@ services:
   db:
     image: mariadb:10.11
     environment:
+      # NOW() folgt der Uhr des Containers; ohne TZ waere das UTC.
+      TZ: ${TZ:-Europe/Berlin}
       MARIADB_ROOT_PASSWORD: ${DB_PASS:-entwicklung}
       MARIADB_DATABASE: db_unterricht
     volumes:

@@ -15,6 +15,14 @@
 
 set -e
 
+# Zeitzone fuer PHP aus der Umgebung uebernehmen.
+#
+# TZ setzt die Uhr des Containers, PHP interessiert das aber nicht: ohne
+# date.timezone rechnet es in UTC weiter. Im Sommer sind das zwei Stunden
+# Unterschied zur Uhr an der Wand - und die stehen dann in jedem Zeitstempel,
+# vom "gesendet am" bis zum Zeitpunkt, an dem eine Krankmeldung gelesen wurde.
+printf 'date.timezone = %s\n' "${TZ:-Europe/Berlin}" > /usr/local/etc/php/conf.d/zeitzone.ini
+
 ABLAGE=/var/www/html/storage
 
 for verzeichnis in \
