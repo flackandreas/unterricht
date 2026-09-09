@@ -16,9 +16,15 @@ require_login();
 // Am SchulOS-Portal ist die Modulauswahl dort zuhause. Ohne Portal bleibt die
 // alte Auswahlseite bestehen, damit eine Schule dieses Modul auch allein
 // betreiben kann.
+// Am Portal ist die alte Modulauswahl gegenstandslos - der Weg fuehrt auf das
+// eigene Dashboard.
+//
+// NICHT zurueck zum Portal: die Kacheln dort zeigen auf die Wurzel des Moduls,
+// und die landet hier. Eine Weiterleitung ans Portal schickt damit jeden, der
+// eine Kachel antippt, sofort wieder dorthin zurueck. Der Weg zum Portal
+// steht in der Navigation.
 if (sso_aktiv()) {
-    $portal = sso_portal_adresse();
-    header('Location: ' . ($portal !== '' ? $portal . '/' : '/dashboard'));
+    header('Location: /dashboard');
     exit;
 }
 
