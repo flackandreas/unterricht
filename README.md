@@ -43,8 +43,10 @@ Portal einmal steht.
 | `/sso/abmelden` | Abmeldung über den Vorderkanal |
 | `/healthz` | Lebenszeichen für das Portal |
 
-Der Ablauf steckt im Paket `schulos/sso`; nach Änderungen daran muss hier
-`composer update schulos/sso` laufen.
+Der Ablauf steckt im Paket [`schulos/sso`](https://github.com/flackandreas/schulos-sso).
+Das Modul zeigt auf eine Version, nicht auf einen Zweig; eine neue Fassung wird
+mit `composer update schulos/sso` bewusst gezogen und mit committet, weil
+`vendor/` hier versioniert ist.
 
 ### 📚 Hausaufgaben-Management
 - **Lehrkräfte-Verwaltung**: Erstellen, Bearbeiten und Archivieren von Hausaufgaben pro Klasse und Fach. Zuordnung von Erwartungshorizonten, Dateianhängen und Abgabefristen.
