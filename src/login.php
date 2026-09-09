@@ -20,9 +20,26 @@ if (is_logged_in()) {
 
 $portalAktiv = sso_aktiv();
 
-// Am Portal ist die oertliche Maske nicht der Regelweg. Sie bleibt unter
-// /login.php?lokal=1 erreichbar - fuer den Fall, dass das Portal steht und
-// jemand trotzdem an die Anwendung muss.
+/**
+ * Ausschliesslich ueber das Portal.
+ *
+ * Dann gibt es die oertliche Maske gar nicht - auch nicht ueber ?lokal=1 und
+ * auch nicht als abgeschicktes Formular. Gedacht fuer oeffentlich erreichbare
+ * Instanzen: dort ist ein mitgeliefertes Konto eine offene Tuer, und wer es
+ * uebernimmt, behaelt es.
+ *
+ * Vorgabe ist aus. Eine Schule soll im Zweifel noch hereinkommen, wenn das
+ * Portal steht.
+ */
+$nurUeberPortal = $portalAktiv && (string) env('PORTAL_NUR_SSO', '0') === '1';
+
+if ($nurUeberPortal) {
+    header('Location: /sso_start.php');
+    exit;
+}
+
+// Sonst ist die oertliche Maske am Portal nur nicht mehr der Regelweg; als
+// Rueckfall bleibt sie unter /login.php?lokal=1 erreichbar.
 if ($portalAktiv && !isset($_GET['lokal']) && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: /sso_start.php');
     exit;
