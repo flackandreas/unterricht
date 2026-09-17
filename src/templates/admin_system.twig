@@ -2,6 +2,8 @@
 
 {% block content %}
 
+{% include 'partials/_neue_zugaenge.twig' %}
+
 <div class="content-box" style="margin-bottom: 25px;">
     <h2 style="margin-top: 0;">KI-Nutzung &amp; Warteschlange</h2>
     <p style="color: var(--text-muted); font-size: 0.9em; margin-top: 0;">
@@ -67,7 +69,8 @@
     <h3 style="border-left: 4px solid #8e44ad; padding-left: 10px;">Lehrkräfte CSV-Import</h3>
     <p style="color: var(--text-muted); margin-bottom: 15px;">
         Importiere Lehrkräfte aus einer CSV-Datei. Erwartetes Format: <strong>Kürzel;Name;Email</strong> (erste Zeile wird als Überschrift ignoriert). 
-        Existierende Kürzel werden übersprungen. Das Standard-Passwort für neue Accounts ist <code>lehrer</code>.
+        Existierende Kürzel werden übersprungen. Jedes neue Konto bekommt ein eigenes Zufallspasswort,
+        das nach dem Import einmalig angezeigt wird und beim ersten Anmelden gewechselt werden muss.
     </p>
     <form method="POST" action="/admin_system.php" enctype="multipart/form-data" class="modern-form" style="max-width: 500px;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

@@ -37,22 +37,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     if ($action === 'create') {
                         if (empty($password)) {
                             $_SESSION['flash_error'] = "Für neue Lehrkräfte muss ein Passwort vergeben werden.";
+                        } elseif (mb_strlen($password) < 8) {
+                            // Dieselbe Untergrenze wie in change_password.php.
+                            $_SESSION['flash_error'] = "Das Passwort muss mindestens 8 Zeichen lang sein.";
                         } else {
                             $hash = password_hash($password, PASSWORD_DEFAULT);
-                            $stmt = $conn->prepare("INSERT INTO teachers (kuerzel, name, email, passwort_hash, is_admin) VALUES (?, ?, ?, ?, ?)");
+                            // Wechselzwang: die Verwaltung kennt dieses Passwort,
+                            // sie hat es gerade selbst eingetippt.
+                            $stmt = $conn->prepare("INSERT INTO teachers (kuerzel, name, email, passwort_hash, is_admin, force_password_change) VALUES (?, ?, ?, ?, ?, 1)");
                             $stmt->execute([$kuerzel, $name, $email, $hash, $is_admin]);
-                            $_SESSION['flash_success'] = "Lehrkraft erfolgreich angelegt.";
+                            $_SESSION['flash_success'] = "Lehrkraft angelegt. Das Passwort muss beim ersten Anmelden gewechselt werden.";
                         }
                     } elseif ($action === 'update' && $id > 0) {
-                        if (!empty($password)) {
+                        if (!empty($password) && mb_strlen($password) < 8) {
+                            $_SESSION['flash_error'] = "Das Passwort muss mindestens 8 Zeichen lang sein.";
+                        } elseif (!empty($password)) {
                             $hash = password_hash($password, PASSWORD_DEFAULT);
-                            $stmt = $conn->prepare("UPDATE teachers SET kuerzel = ?, name = ?, email = ?, passwort_hash = ?, is_admin = ? WHERE id = ?");
-                            $stmt->execute([$kuerzel, $name, $email, $hash, $is_admin, $id]);
+                            // Ein zurueckgesetztes Passwort kennt die Verwaltung -
+                            // ausser man setzt das eigene, dann waere der Zwang nur laestig.
+                            $wechsel = $id === (int)get_current_user_id() ? 0 : 1;
+                            $stmt = $conn->prepare("UPDATE teachers SET kuerzel = ?, name = ?, email = ?, passwort_hash = ?, is_admin = ?, force_password_change = ? WHERE id = ?");
+                            $stmt->execute([$kuerzel, $name, $email, $hash, $is_admin, $wechsel, $id]);
+                            $_SESSION['flash_success'] = "Lehrkraft erfolgreich aktualisiert.";
                         } else {
                             $stmt = $conn->prepare("UPDATE teachers SET kuerzel = ?, name = ?, email = ?, is_admin = ? WHERE id = ?");
                             $stmt->execute([$kuerzel, $name, $email, $is_admin, $id]);
+                            $_SESSION['flash_success'] = "Lehrkraft erfolgreich aktualisiert.";
                         }
-                        $_SESSION['flash_success'] = "Lehrkraft erfolgreich aktualisiert.";
                     }
                 } catch (PDOException $e) {
                     if ($e->getCode() == 23000) { // Integrity constraint violation (Duplicate entry)
@@ -90,10 +101,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         $imported = 0;
                         $skipped = 0;
                         $isFirstRow = true;
-                        
-                        $hash = password_hash('Start123!', PASSWORD_DEFAULT);
+                        $zugaenge = [];
+
+                        // Je Konto ein eigenes Zufallspasswort mit Wechselzwang.
+                        // Vorher bekam jede importierte Lehrkraft dasselbe, im
+                        // Quelltext stehende "Start123!".
                         $stmtCheck = $conn->prepare("SELECT id FROM teachers WHERE kuerzel = ?");
-                        $stmtInsert = $conn->prepare("INSERT INTO teachers (kuerzel, name, email, passwort_hash, is_admin) VALUES (?, ?, ?, ?, 0)");
+                        $stmtInsert = $conn->prepare("INSERT INTO teachers (kuerzel, name, email, passwort_hash, is_admin, force_password_change) VALUES (?, ?, ?, ?, 0, 1)");
 
                         while (($row = fgetcsv($handle, 1000, ';')) !== false) {
                             if ($isFirstRow) {
@@ -109,8 +123,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 if (!empty($kuerzel) && !empty($name)) {
                                     $stmtCheck->execute([$kuerzel]);
                                     if ($stmtCheck->rowCount() == 0) {
-                                        $stmtInsert->execute([$kuerzel, $name, $email, $hash]);
+                                        $passwort = erstes_passwort();
+                                        $stmtInsert->execute([$kuerzel, $name, $email, password_hash($passwort, PASSWORD_DEFAULT)]);
                                         $imported++;
+                                        $zugaenge[] = ['kuerzel' => $kuerzel, 'name' => $name, 'passwort' => $passwort];
                                     } else {
                                         $skipped++;
                                     }
@@ -118,6 +134,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             }
                         }
                         fclose($handle);
+
+                        // Genau einmal anzeigen - ohne diese Liste kommt
+                        // niemand in sein neues Konto.
+                        $_SESSION['neue_zugaenge'] = $zugaenge;
                         $_SESSION['flash_success'] = "Import abgeschlossen: $imported neu angelegt, $skipped übersprungen (bereits vorhanden).";
                     } else {
                         $_SESSION['flash_error'] = "Fehler beim Lesen der CSV-Datei.";
@@ -142,10 +162,12 @@ $teachers = $stmt->fetchAll();
 $csrf_token = get_csrf_token();
 $flash_success = $_SESSION['flash_success'] ?? null;
 $flash_error = $_SESSION['flash_error'] ?? null;
-unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+$neue_zugaenge = $_SESSION['neue_zugaenge'] ?? [];
+unset($_SESSION['flash_success'], $_SESSION['flash_error'], $_SESSION['neue_zugaenge']);
 
 echo $twig->render('admin_lehrer.twig', [
     'csrf_token' => $csrf_token,
+    'neue_zugaenge' => $neue_zugaenge,
     'flash_success' => $flash_success,
     'flash_error' => $flash_error,
     'teachers' => $teachers,

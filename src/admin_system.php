@@ -40,10 +40,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['teacher_csv'])) {
                 
                 $success_count = 0;
                 $skip_count = 0;
-                
-                $stmt = $conn->prepare("INSERT IGNORE INTO teachers (kuerzel, name, email, passwort_hash) VALUES (?, ?, ?, ?)");
-                $default_pw_hash = password_hash('lehrer', PASSWORD_DEFAULT);
-                
+                $zugaenge = [];
+
+                // Je Konto ein eigenes Zufallspasswort, das beim ersten
+                // Anmelden gewechselt werden muss. Vorher bekam jede
+                // importierte Lehrkraft dasselbe Passwort ("lehrer"), das im
+                // Quelltext und in der Oberflaeche stand.
+                $stmt = $conn->prepare("
+                    INSERT IGNORE INTO teachers (kuerzel, name, email, passwort_hash, force_password_change)
+                    VALUES (?, ?, ?, ?, 1)
+                ");
+
                 while (($data = fgetcsv($handle, 1000, $delimiter)) !== false) {
                     if (count($data) >= 2) {
                         $kuerzel = trim($data[0]);
@@ -52,10 +59,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['teacher_csv'])) {
                         
                         if (!empty($kuerzel) && !empty($name)) {
                             if ($email === '') $email = null;
-                            
-                            $stmt->execute([$kuerzel, $name, $email, $default_pw_hash]);
+
+                            $passwort = erstes_passwort();
+                            $stmt->execute([$kuerzel, $name, $email, password_hash($passwort, PASSWORD_DEFAULT)]);
+
                             if ($stmt->rowCount() > 0) {
                                 $success_count++;
+                                $zugaenge[] = ['kuerzel' => $kuerzel, 'name' => $name, 'passwort' => $passwort];
                             } else {
                                 $skip_count++;
                             }
@@ -63,6 +73,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['teacher_csv'])) {
                     }
                 }
                 fclose($handle);
+
+                // Genau einmal anzeigen: ohne diese Liste kommt niemand in
+                // sein neues Konto. Sie steht in der Sitzung, nicht in der
+                // Datenbank - das Passwort selbst wird nirgends gespeichert.
+                $_SESSION['neue_zugaenge'] = $zugaenge;
                 $_SESSION['flash_success'] = "Import abgeschlossen: $success_count hinzugefügt, $skip_count übersprungen.";
             } else {
                 $_SESSION['flash_error'] = "Fehler beim Lesen der Datei.";
@@ -80,9 +95,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['teacher_csv'])) {
 $csrf_token = get_csrf_token();
 $flash_success = $_SESSION['flash_success'] ?? null;
 $flash_error = $_SESSION['flash_error'] ?? null;
-unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+$neue_zugaenge = $_SESSION['neue_zugaenge'] ?? [];
+unset($_SESSION['flash_success'], $_SESSION['flash_error'], $_SESSION['neue_zugaenge']);
 
 echo $twig->render('admin_system.twig', [
+    'neue_zugaenge' => $neue_zugaenge,
     'ai_usage' => UsageRecorder::summary($conn, 30),
     'queue_counts' => (new EvaluationQueue($conn))->counts(),
     'csrf_token' => $csrf_token,
