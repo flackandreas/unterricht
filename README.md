@@ -360,8 +360,16 @@ Die Kennung dafür ist die IP-Adresse der Verbindung. `X-Forwarded-For` wird
 nur ausgewertet, wenn die Anfrage von einem in `TRUSTED_PROXIES` eingetragenen
 Vermittler kommt – sonst bestimmte jeder Aufrufer seinen eigenen Zähler und
 war praktisch unbegrenzt. **Wer hinter einem Reverse Proxy betreibt, muss
-`TRUSTED_PROXIES` setzen** (`private` genügt im Containerverbund), sonst
-teilen sich alle Zugriffe die Adresse des Proxys.
+`TRUSTED_PROXIES` setzen**, sonst teilen sich alle Zugriffe die Adresse des
+Proxys. Die Vorlage steht auf `172.16.0.0/12` – die Docker-Bridge-Netze, in
+denen der Reverse Proxy als Nachbarcontainer hängt. Bewusst nicht `private`:
+`10.x` und `192.168.x` sind die Schulnetze, und wer dort den Port direkt
+erreicht, könnte den Header sonst wieder fälschen.
+
+> Die Container-Umgebung **gewinnt** über `src/.env`: Dotenv wird immutable
+> geladen und überschreibt keine bereits gesetzte Variable. Werte, die je
+> Installation abweichen dürfen, gehören deshalb in `src/.env` und nicht in
+> die `compose.yml`.
 
 ### Fehlerausgaben
 Das Abbild aktiviert `php.ini-production`; zusätzlich schaltet `bootstrap.php`
