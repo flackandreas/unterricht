@@ -37,6 +37,7 @@ $daten = [
     'tab'               => $tab,
     'active_session'    => $repository->activeSession($user_id),
     'host_url'          => request_base_url(),
+    'schueler_url'      => request_schueler_base_url(),
     'csrf_token'        => get_csrf_token(),
     'flash_success'     => flash('flash_success'),
     'flash_error'       => flash('flash_error'),

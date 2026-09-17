@@ -193,9 +193,9 @@
     
     <div style="display: flex; gap: 20px; align-items: center;">
         <div style="flex: 1;">
-            <input type="text" readonly value="{{ host_url }}/student_homework.php?t={{ assignment.token }}" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; background: white; font-family: monospace; font-size: 1.1em;" onclick="this.select();">
+            <input type="text" readonly value="{{ schueler_url }}/student_homework.php?t={{ assignment.token }}" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; background: white; font-family: monospace; font-size: 1.1em;" onclick="this.select();">
         </div>
-        <img src="{{ qr_data_uri(host_url ~ '/student_homework.php?t=' ~ assignment.token, 100) }}" 
+        <img src="{{ qr_data_uri(schueler_url ~ '/student_homework.php?t=' ~ assignment.token, 100) }}" 
              alt="QR Code" 
              class="qr-thumbnail" 
              style="border: 5px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.1);"
@@ -275,7 +275,7 @@
     </form>
     <h3 style="margin-top: 0; margin-bottom: 20px; font-family: 'Inter', sans-serif;">QR-Code für Schüler</h3>
     <div style="display: inline-block; padding: 15px; background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px;">
-        <img src="{{ qr_data_uri(host_url ~ '/student_homework.php?t=' ~ assignment.token, 300) }}" alt="QR Code Gross" style="display: block; width: 300px; height: 300px; border-radius: 4px;">
+        <img src="{{ qr_data_uri(schueler_url ~ '/student_homework.php?t=' ~ assignment.token, 300) }}" alt="QR Code Gross" style="display: block; width: 300px; height: 300px; border-radius: 4px;">
     </div>
     <p style="margin: 0 0 20px 0; font-size: 0.95em; color: var(--text-muted); line-height: 1.4;">Schüler können diesen Code mit ihrem Smartphone scannen, um ihre Hausaufgabe direkt abzugeben.</p>
     <form method="dialog" style="margin: 0;">

@@ -73,6 +73,27 @@ function request_base_url(): string {
 }
 
 /**
+ * Basisadresse fuer alles, was Schuelerinnen und Schueler zu sehen bekommen.
+ *
+ * Hausaufgaben, Feedback und die Vertretungsmappe sind ueber einen Token in
+ * der Adresse erreichbar, ohne Anmeldung. Die Links und QR-Codes dafuer
+ * entstehen aber in der Lehreransicht - und trugen deshalb bisher
+ * zwangslaeufig die Adresse des Lehrerzugangs.
+ *
+ * Mit SCHUELER_URL bekommen sie eine eigene, kurze Adresse. Ist die Variable
+ * leer, bleibt alles wie bisher: dann faellt es auf APP_URL zurueck und es
+ * aendert sich nichts.
+ */
+function request_schueler_base_url(): string {
+    $configured = trim((string)($_ENV['SCHUELER_URL'] ?? getenv('SCHUELER_URL') ?: ''));
+    if ($configured !== '') {
+        return rtrim($configured, '/');
+    }
+
+    return request_base_url();
+}
+
+/**
  * IP-Adresse des Clients, fuer Rate-Limiting.
  */
 function request_client_ip(): string {
