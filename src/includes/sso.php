@@ -15,6 +15,7 @@
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/../config/database.php';
 
+use App\Support\AuditLog;
 use SchulOS\Sso\Anmeldung;
 use SchulOS\Sso\Identitaet;
 use SchulOS\Sso\Konfiguration;
@@ -93,7 +94,14 @@ function sso_zuordnung_bereit(PDO $conn): bool
  *   2. ueber das Kuerzel, dann wird sso_sub nachgetragen; so wandert ein
  *      bestehendes Konto beim ersten Portal-Login mit, samt seiner Klassen
  *      und Hausaufgaben
- *   3. neu anlegen
+ *   3. neu anlegen - aber nur, wenn PORTAL_ZUGANG_GRUPPEN gesetzt ist
+ *
+ * Ohne PORTAL_ZUGANG_GRUPPEN wird niemand mehr automatisch angelegt; dann
+ * koennen sich nur bereits eingetragene Lehrkraefte anmelden. Vorher war es
+ * umgekehrt: ein leerer Wert hiess "jede im Portal angemeldete Person bekommt
+ * hier ein Lehrkraftkonto" - inklusive Zugriff auf Hausaufgaben und
+ * Klassenauswertungen. Der IServ-Weg (login_sso.php) haelt es seit laengerem
+ * so herum; beide Wege sollen sich nicht widersprechen.
  *
  * @return array<string,mixed>|null null heisst: kein Zugang
  */
@@ -124,10 +132,34 @@ function sso_konto(PDO $conn, Identitaet $identitaet): ?array
         if ($konto) {
             sso_verknuepfe($conn, $identitaet->sub, (int) $konto['id']);
             error_log('Unterricht: bestehendes Konto ' . $identitaet->kuerzel . ' mit dem Portal verknuepft.');
+
+            // Beim ersten Mal entscheidet das Kuerzel darueber, wer ein
+            // bestehendes Konto uebernimmt. Das gehoert nachlesbar
+            // festgehalten, nicht nur ins Fehlerprotokoll.
+            (new AuditLog($conn))->record(
+                (int) $konto['id'],
+                'portal.konto_verknuepft',
+                'teacher',
+                (int) $konto['id'],
+                'Kuerzel ' . $identitaet->kuerzel . ' mit Portal-Kennung ' . substr($identitaet->sub, 0, 12) . '… verknuepft'
+            );
         }
     }
 
     if (!$konto) {
+        // Ohne festgelegte Zugangsgruppen wird niemand automatisch angelegt.
+        // Sonst bekaeme jede im Portal angemeldete Person hier ein
+        // Lehrkraftkonto - auch Schuelerinnen und Schueler, sobald das Portal
+        // deren Konten fuehrt.
+        if ($zugangsGruppen === '') {
+            error_log(
+                'Unterricht: Zugang verweigert fuer ' . $identitaet->kuerzel
+                . ' - kein Konto vorhanden und PORTAL_ZUGANG_GRUPPEN ist nicht gesetzt.'
+            );
+
+            return null;
+        }
+
         // SSO-Konten brauchen kein lokales Passwort. bin2hex, weil
         // random_bytes Nullbytes enthalten kann und bcrypt dort abschneidet.
         $platzhalter = password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT);
