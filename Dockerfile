@@ -31,14 +31,19 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 # bootstrap.php wieder ein, fuer die Entwicklung.
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
+# Grenzen fuer Hausaufgabenfotos. Wichtig, dass sie hier stehen und nicht in
+# der php.ini: conf.d wird danach geparst und gewinnt. Die php.ini-production
+# setzt 2M/8M/128M - ohne diese Datei waere jeder Upload abgewiesen.
 # Configure custom php.ini settings for larger file uploads
 RUN echo "upload_max_filesize = 40M" > /usr/local/etc/php/conf.d/uploads.ini \
     && echo "post_max_size = 45M" >> /usr/local/etc/php/conf.d/uploads.ini \
     && echo "memory_limit = 256M" >> /usr/local/etc/php/conf.d/uploads.ini
 
 # Die PHP-Version gehoert nicht in jeden Antwort-Header: sie erspart die Suche
-# danach, welche Luecken sich zu probieren lohnen. php.ini-production laesst
-# expose_php an.
+# danach, welche Luecken sich zu probieren lohnen. Ob die php.ini-production
+# des Abbilds sie schon abschaltet, haengt von der Herkunft der Datei ab - die
+# Fassung aus dem PHP-Quellpaket laesst expose_php an, die aus Debian nicht.
+# Diese Zeile gilt in beiden Faellen.
 RUN echo "expose_php = Off" > /usr/local/etc/php/conf.d/haerten.ini
 
 # Die Ablage liegt bei einem bind-mount ausserhalb des Abbilds - die Rechte
