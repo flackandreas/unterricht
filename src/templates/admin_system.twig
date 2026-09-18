@@ -67,6 +67,13 @@
    ===================================================================== #}
 <div class="content-box">
     <h3 style="border-left: 4px solid #8e44ad; padding-left: 10px;">Lehrkräfte CSV-Import</h3>
+{% if portal_aktiv %}
+    <p style="color: var(--text-muted); margin-bottom: 0;">
+        Konten werden am <a href="{{ portal_adresse }}/verwaltung/benutzer">SchulOS-Portal</a> verwaltet – dort
+        gilt eine Liste für alle Module. Hier ist nichts einzulesen: der Eintrag entsteht, sobald sich die
+        Person zum ersten Mal in diesem Modul anmeldet.
+    </p>
+{% else %}
     <p style="color: var(--text-muted); margin-bottom: 15px;">
         Importiere Lehrkräfte aus einer CSV-Datei. Erwartetes Format: <strong>Kürzel;Name;Email</strong> (erste Zeile wird als Überschrift ignoriert). 
         Existierende Kürzel werden übersprungen. Jedes neue Konto bekommt ein eigenes Zufallspasswort,
@@ -82,6 +89,7 @@
             <button type="submit" class="button-primary" style="background-color: #8e44ad; width: auto;">Import starten</button>
         </div>
     </form>
+{% endif %}
 </div>
 
 {# =====================================================================

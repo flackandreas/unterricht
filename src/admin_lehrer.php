@@ -88,7 +88,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
             }
         } elseif ($action === 'import_csv') {
-            if (isset($_FILES['csv_file']) && $_FILES['csv_file']['error'] === UPLOAD_ERR_OK) {
+            // Am Portal gehoeren die Konten dorthin - siehe admin_system.php.
+            if (sso_aktiv()) {
+                $_SESSION['flash_error'] = 'Konten werden am Portal verwaltet. Dort einlesen, hier entsteht der Eintrag bei der ersten Anmeldung von selbst.';
+            } elseif (isset($_FILES['csv_file']) && $_FILES['csv_file']['error'] === UPLOAD_ERR_OK) {
                 $fileTmpPath = $_FILES['csv_file']['tmp_name'];
                 $fileName = $_FILES['csv_file']['name'];
                 $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
@@ -168,6 +171,7 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error'], $_SESSION['neue_zuga
 echo $twig->render('admin_lehrer.twig', [
     'csrf_token' => $csrf_token,
     'neue_zugaenge' => $neue_zugaenge,
+    'portal_aktiv' => sso_aktiv(),
     'flash_success' => $flash_success,
     'flash_error' => $flash_error,
     'teachers' => $teachers,

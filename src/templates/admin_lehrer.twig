@@ -62,6 +62,13 @@
     <!-- CSV Import Section -->
     <div style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 30px;">
         <h3 style="margin-top: 0; margin-bottom: 15px;">Lehrkräfte importieren (CSV)</h3>
+{% if portal_aktiv %}
+        <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 0;">
+            Konten werden am <a href="{{ portal_adresse }}/verwaltung/benutzer">SchulOS-Portal</a> verwaltet –
+            dort gilt eine Liste für alle Module. Hier ist nichts einzulesen: der Eintrag entsteht, sobald
+            sich die Person zum ersten Mal in diesem Modul anmeldet.
+        </p>
+{% else %}
         <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 20px;">
             Laden Sie eine Semikolon-getrennte CSV-Datei hoch (Format: <code>Kürzel;Name;Email</code>). 
             Die erste Zeile wird als Überschrift ignoriert. Bereits bestehende Kürzel werden übersprungen.<br>
@@ -77,6 +84,7 @@
             
             <button type="submit" class="btn btn-primary" style="background-color: var(--primary-color); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: 600;">Importieren</button>
         </form>
+{% endif %}
     </div>
 </div>
 

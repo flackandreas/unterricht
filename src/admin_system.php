@@ -23,6 +23,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['teacher_csv'])) {
         header("Location: /admin_system.php");
         exit;
     }
+
+    // Am Portal gehoeren die Konten dorthin. Ein Import hier schriebe in
+    // denselben Bestand, den das Portal fuehrt - und das Portal ueberschriebe
+    // Name, E-Mail und Rechte bei der naechsten Anmeldung ohnehin wieder.
+    // Eine ausgeblendete Maske ist keine Sperre; deshalb auch hier.
+    if (sso_aktiv()) {
+        $_SESSION['flash_error'] = 'Konten werden am Portal verwaltet. Dort einlesen, hier entsteht der Eintrag bei der ersten Anmeldung von selbst.';
+        header("Location: /admin_system.php");
+        exit;
+    }
     
     $file = $_FILES['teacher_csv'];
     if ($file['error'] === UPLOAD_ERR_OK) {
@@ -100,6 +110,7 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error'], $_SESSION['neue_zuga
 
 echo $twig->render('admin_system.twig', [
     'neue_zugaenge' => $neue_zugaenge,
+    'portal_aktiv' => sso_aktiv(),
     'ai_usage' => UsageRecorder::summary($conn, 30),
     'queue_counts' => (new EvaluationQueue($conn))->counts(),
     'csrf_token' => $csrf_token,
