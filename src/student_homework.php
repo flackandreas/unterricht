@@ -219,6 +219,7 @@ if ($view_token !== '') {
         'quest_reward'         => $sub['quest_reward'] ?? null,
         'csrf_token'           => get_csrf_token(),
         'host_url'             => request_base_url(),
+        'schueler_url'         => request_schueler_base_url(),
     ]);
     exit;
 }

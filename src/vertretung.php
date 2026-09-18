@@ -141,6 +141,7 @@ echo $twig->render('vertretung.twig', [
     'hausaufgaben'      => $kontext['hausaufgaben'],
     'heute'             => date('Y-m-d'),
     'host_url'          => request_base_url(),
+    'schueler_url'      => request_schueler_base_url(),
     'current_user_name' => get_current_user_name(),
     'is_admin'          => is_current_user_admin(),
     'is_logged_in'      => true,

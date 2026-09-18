@@ -19,6 +19,7 @@ services:
       DB_PASS: ${DB_PASS:-entwicklung}
       DB_NAME: db_unterricht
       APP_URL: http://localhost:8889
+      SCHUELER_URL: ${SCHUELER_URL:-}
       TZ: Europe/Berlin
     depends_on:
       db:

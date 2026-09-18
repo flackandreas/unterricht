@@ -225,7 +225,7 @@
                     </button>
                 </form>
             {% elseif plan.status == 'released' %}
-                {% set adresse = host_url ~ '/vertretung_view.php?token=' ~ plan.access_token %}
+                {% set adresse = schueler_url ~ '/vertretung_view.php?token=' ~ plan.access_token %}
                 <div style="display: flex; gap: var(--space-6); flex-wrap: wrap; align-items: center;">
                     <div style="flex-shrink: 0;">
                         <img src="{{ qr_data_uri(adresse, 160) }}" alt="Zugang zur Vertretungsmappe" width="160" height="160">

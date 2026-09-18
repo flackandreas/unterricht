@@ -444,6 +444,7 @@ if ($action === 'view') {
         'is_admin'             => is_current_user_admin(),
         'current_user_name'    => get_current_user_name(),
         'host_url'             => request_base_url(),
+        'schueler_url'         => request_schueler_base_url(),
     ]);
     exit;
 }
@@ -480,6 +481,7 @@ echo $twig->render('admin_homework.twig', [
     'flash_success'      => flash('flash_success'),
     'flash_error'        => flash('flash_error'),
     'host_url'           => request_base_url(),
+    'schueler_url'       => request_schueler_base_url(),
     'is_logged_in'       => true,
     'is_admin'           => is_current_user_admin(),
     'current_user_name'  => get_current_user_name(),
