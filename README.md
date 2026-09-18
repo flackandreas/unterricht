@@ -254,6 +254,28 @@ docker compose exec web php bin/worker.php --once
 > oder den davon genutzten Klassen muss er neu gestartet werden
 > (`docker compose restart worker`), sonst läuft weiter der alte Code.
 
+### Jahresabschluss
+
+Zwei getrennte Schritte in `admin/system`:
+
+**Archivieren.** Ein Schuljahr (1. August bis 31. Juli) geht vollständig in ein
+`tar.gz` – Klassenlisten, Hausaufgaben samt Korrektur, Beteiligungsbelege,
+Feedback, Stundenthemen, Vertretungsmappen und das Änderungsprotokoll. Je
+Tabelle eine CSV mit BOM, damit Excel die Umlaute erkennt.
+
+> Das Archiv trägt **Namen Minderjähriger**. Das ist beabsichtigt – ohne sie
+> taugt es nicht als Beleg – und gehört ins Verzeichnis der
+> Verarbeitungstätigkeiten. Nicht enthalten sind Zugangstoken und
+> Passwort-Hashes: Token sind keine Daten, sondern Schlüssel. Wer das Archiv
+> zieht, steht im `audit_log`.
+
+**Löschen.** Der Abschluss löscht *nichts* nach Jahreszahl. Er stößt an, was
+das Löschkonzept ohnehin tut – Fotos nach der je Aufgabe gesetzten Frist,
+Beteiligung nach `PARTICIPATION_RETENTION_DAYS`. Eine zweite Frist neben der
+eingestellten wäre eine zweite Wahrheit; `PARTICIPATION_RETENTION_DAYS`
+umspannt bewusst zwei Schuljahre, weil die mündliche Note innerhalb der
+Widerspruchsfrist begründbar bleiben muss.
+
 ### Löschkonzept (empfohlen als täglicher cron-Aufruf)
 
 Entfernt Hausaufgabenfotos nach Ablauf der je Aufgabe eingestellten Frist
