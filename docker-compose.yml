@@ -6,7 +6,12 @@ services:
     volumes:
       - ./src:/var/www/html
     environment:
-      # Werte aus src/.env haben Vorrang; hier stehen nur die Vorgaben.
+      # Achtung, andersherum als lange angenommen: was hier steht, gewinnt
+      # ueber src/.env. Dotenv wird immutable geladen und ueberschreibt keine
+      # Variable, die in der Umgebung schon gesetzt ist. Einstellungen, die
+      # je Installation abweichen duerfen (TRUSTED_PROXIES, PORTAL_*), gehoeren
+      # deshalb in src/.env und nicht hierher - sonst lassen sie sich dort
+      # nicht mehr aendern.
       TZ: Europe/Berlin
     networks:
       - app-network

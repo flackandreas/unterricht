@@ -1,6 +1,9 @@
 {% extends "base.twig" %}
 
 {% block content %}
+
+{% include 'partials/_neue_zugaenge.twig' %}
+
 <div class="content-box">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h2 style="margin: 0;">Lehrerverwaltung</h2>
@@ -59,10 +62,18 @@
     <!-- CSV Import Section -->
     <div style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 30px;">
         <h3 style="margin-top: 0; margin-bottom: 15px;">Lehrkräfte importieren (CSV)</h3>
+{% if portal_aktiv %}
+        <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 0;">
+            Konten werden am <a href="{{ portal_adresse }}/verwaltung/benutzer">SchulOS-Portal</a> verwaltet –
+            dort gilt eine Liste für alle Module. Hier ist nichts einzulesen: der Eintrag entsteht, sobald
+            sich die Person zum ersten Mal in diesem Modul anmeldet.
+        </p>
+{% else %}
         <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 20px;">
             Laden Sie eine Semikolon-getrennte CSV-Datei hoch (Format: <code>Kürzel;Name;Email</code>). 
             Die erste Zeile wird als Überschrift ignoriert. Bereits bestehende Kürzel werden übersprungen.<br>
-            Das Standard-Passwort für neu importierte Lehrkräfte lautet: <strong>Start123!</strong>
+            Jedes neue Konto bekommt ein eigenes Zufallspasswort. Es wird nach dem Import
+            <strong>einmalig angezeigt</strong> und muss beim ersten Anmelden gewechselt werden.
         </p>
         
         <form method="POST" enctype="multipart/form-data" style="display: flex; align-items: center; gap: 15px; background: #f9f9f9; padding: 20px; border-radius: 6px; border: 1px dashed #ccc;">
@@ -73,6 +84,7 @@
             
             <button type="submit" class="btn btn-primary" style="background-color: var(--primary-color); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: 600;">Importieren</button>
         </form>
+{% endif %}
     </div>
 </div>
 
@@ -102,7 +114,8 @@
             
             <div style="margin-bottom: 15px;">
                 <label style="display: block; font-weight: 600; margin-bottom: 5px;">Passwort <span id="pwHint" style="font-weight: normal; font-size: 0.85em; color: var(--text-muted);">(Leer lassen, um nicht zu ändern)</span></label>
-                <input type="password" name="password" id="formPassword" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                <input type="password" name="password" id="formPassword" minlength="8" autocomplete="new-password" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                <small style="color: var(--text-muted); font-size: 0.82em;">Mindestens 8 Zeichen. Wer ein Passwort hier vergibt, muss es weitergeben – die Lehrkraft wird beim ersten Anmelden zum Wechsel aufgefordert.</small>
             </div>
             
             <div style="margin-bottom: 25px;">

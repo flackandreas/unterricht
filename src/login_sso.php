@@ -256,7 +256,12 @@ if (isset($_GET['code'])) {
         $_SESSION['user_kuerzel'] = $preferred_username;
         $_SESSION['is_admin'] = $user['is_admin'];
         $_SESSION['user_name'] = $user['name'];
-        $_SESSION['force_password_change'] = $user['force_password_change'];
+        // Wer ueber SSO hereinkommt, braucht das oertliche Passwort nicht -
+        // ein Wechselzwang schickte ihn auf eine Maske, die nach einem
+        // Passwort fragt, das er nie hatte. Der Vermerk bleibt in der
+        // Datenbank stehen und greift, sobald jemand die oertliche Maske
+        // benutzt. Der Portal-Weg (includes/sso.php) haelt es genauso.
+        $_SESSION['force_password_change'] = 0;
         
         header("Location: /index.php");
         exit;

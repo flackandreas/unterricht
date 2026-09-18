@@ -33,6 +33,16 @@ Wer im Portal in einer der Gruppen aus `PORTAL_ADMIN_GRUPPEN` steht, hat hier
 Verwaltungsrechte. Das Portal ist die führende Quelle: Änderungen dort wirken
 bei der nächsten Anmeldung.
 
+`PORTAL_ZUGANG_GRUPPEN` legt fest, wer beim ersten Portal-Login automatisch
+als Lehrkraft angelegt wird. **Ohne diesen Wert wird niemand automatisch
+angelegt** – dann können sich nur bereits eingetragene Lehrkräfte anmelden,
+genau wie bei `ISERV_TEACHER_GROUPS`. Wer von einer älteren Fassung
+aktualisiert, muss den Wert setzen: vorher hieß leer „jede im Portal
+angemeldete Person darf herein".
+
+Wandert ein bestehendes Konto beim ersten Portal-Login über sein Kürzel mit,
+steht das anschließend im `audit_log`.
+
 Die örtliche Maske bleibt unter `/login.php?lokal=1` erreichbar, falls das
 Portal einmal steht.
 
@@ -244,6 +254,28 @@ docker compose exec web php bin/worker.php --once
 > oder den davon genutzten Klassen muss er neu gestartet werden
 > (`docker compose restart worker`), sonst läuft weiter der alte Code.
 
+### Jahresabschluss
+
+Zwei getrennte Schritte in `admin/system`:
+
+**Archivieren.** Ein Schuljahr (1. August bis 31. Juli) geht vollständig in ein
+`tar.gz` – Klassenlisten, Hausaufgaben samt Korrektur, Beteiligungsbelege,
+Feedback, Stundenthemen, Vertretungsmappen und das Änderungsprotokoll. Je
+Tabelle eine CSV mit BOM, damit Excel die Umlaute erkennt.
+
+> Das Archiv trägt **Namen Minderjähriger**. Das ist beabsichtigt – ohne sie
+> taugt es nicht als Beleg – und gehört ins Verzeichnis der
+> Verarbeitungstätigkeiten. Nicht enthalten sind Zugangstoken und
+> Passwort-Hashes: Token sind keine Daten, sondern Schlüssel. Wer das Archiv
+> zieht, steht im `audit_log`.
+
+**Löschen.** Der Abschluss löscht *nichts* nach Jahreszahl. Er stößt an, was
+das Löschkonzept ohnehin tut – Fotos nach der je Aufgabe gesetzten Frist,
+Beteiligung nach `PARTICIPATION_RETENTION_DAYS`. Eine zweite Frist neben der
+eingestellten wäre eine zweite Wahrheit; `PARTICIPATION_RETENTION_DAYS`
+umspannt bewusst zwei Schuljahre, weil die mündliche Note innerhalb der
+Widerspruchsfrist begründbar bleiben muss.
+
 ### Löschkonzept (empfohlen als täglicher cron-Aufruf)
 
 Entfernt Hausaufgabenfotos nach Ablauf der je Aufgabe eingestellten Frist
@@ -329,14 +361,42 @@ Schriften, QR-Codes, Avatare und alle JavaScript-Bibliotheken werden lokal
 ausgeliefert. Es gehen keine IP-Adressen, Namen oder Tokens an externe Dienste.
 
 ### Zugang für Lehrkräfte über SSO
-`ISERV_TEACHER_GROUPS` legt fest, welche IServ-Gruppen beim ersten SSO-Login
-automatisch als Lehrkraft angelegt werden. **Ohne diesen Wert wird niemand
-automatisch angelegt** – dann können sich nur bereits eingetragene Lehrkräfte
-anmelden. Das ist die sichere Vorgabe.
+`ISERV_TEACHER_GROUPS` (IServ) und `PORTAL_ZUGANG_GRUPPEN` (SchulOS-Portal)
+legen fest, welche Gruppen beim ersten SSO-Login automatisch als Lehrkraft
+angelegt werden. **Ohne diese Werte wird niemand automatisch angelegt** – dann
+können sich nur bereits eingetragene Lehrkräfte anmelden. Das ist die sichere
+Vorgabe, und sie gilt für beide Wege gleich.
+
+### Konten und Passwörter
+Der CSV-Import vergibt **je Konto ein eigenes Zufallspasswort** mit
+Wechselzwang beim ersten Anmelden. Die Liste erscheint genau einmal nach dem
+Import – gespeichert wird sie nirgends. Auch ein von der Verwaltung von Hand
+vergebenes Passwort (mindestens acht Zeichen) muss beim ersten Anmelden
+gewechselt werden: Wer es vergibt, kennt es.
 
 ### Rate-Limiting
 Login, Autologin, Hausaufgaben-Abgaben, Unterrichts-Feedback und alle
 KI-Aufrufe sind mengenmässig begrenzt (Tabelle `rate_limits`).
+
+Die Kennung dafür ist die IP-Adresse der Verbindung. `X-Forwarded-For` wird
+nur ausgewertet, wenn die Anfrage von einem in `TRUSTED_PROXIES` eingetragenen
+Vermittler kommt – sonst bestimmte jeder Aufrufer seinen eigenen Zähler und
+war praktisch unbegrenzt. **Wer hinter einem Reverse Proxy betreibt, muss
+`TRUSTED_PROXIES` setzen**, sonst teilen sich alle Zugriffe die Adresse des
+Proxys. Die Vorlage steht auf `172.16.0.0/12` – die Docker-Bridge-Netze, in
+denen der Reverse Proxy als Nachbarcontainer hängt. Bewusst nicht `private`:
+`10.x` und `192.168.x` sind die Schulnetze, und wer dort den Port direkt
+erreicht, könnte den Header sonst wieder fälschen.
+
+> Die Container-Umgebung **gewinnt** über `src/.env`: Dotenv wird immutable
+> geladen und überschreibt keine bereits gesetzte Variable. Werte, die je
+> Installation abweichen dürfen, gehören deshalb in `src/.env` und nicht in
+> die `compose.yml`.
+
+### Fehlerausgaben
+Das Abbild aktiviert `php.ini-production`; zusätzlich schaltet `bootstrap.php`
+`display_errors` ab, solange `APP_ENV` nicht auf `development` steht. Fehler
+werden protokolliert, nicht angezeigt.
 
 ### Datenbank-Migrationen
 Alle Migrationen sind wiederholbar (`IF NOT EXISTS`) und laufen beim ersten

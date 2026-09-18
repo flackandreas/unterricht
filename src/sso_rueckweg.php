@@ -50,7 +50,8 @@ $konto = sso_konto($conn, $identitaet);
 if ($konto === null) {
     error_page(
         'Kein Zugang',
-        'Für Ihr Konto ist dieses Modul nicht freigegeben. Die Schulleitung kann das im Portal ändern.',
+        'Für Ihr Konto ist dieses Modul nicht freigegeben. Die Schulleitung kann den Zugang im Portal '
+            . 'erteilen; besteht hier noch kein Konto, legt es die Administration dieses Moduls an.',
         403,
         sso_portal_adresse() ?: '/login.php'
     );
