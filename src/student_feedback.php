@@ -10,6 +10,11 @@ require_once __DIR__ . '/includes/error_page.php';
 require_once __DIR__ . '/includes/request.php';
 require_once __DIR__ . '/includes/rate_limit.php';
 
+use App\Feedback\Auswahloptionen;
+
+/** Laengste Freitextantwort. response_text ist TEXT, also 64 KB je Antwort. */
+const FEEDBACK_MAX_TEXT = 2000;
+
 $token = $_GET['t'] ?? '';
 $conn = db_connect();
 
@@ -39,9 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         http_response_code(429);
         $error = "Es wurden zu viele Rückmeldungen in kurzer Zeit gesendet. Bitte versuche es später erneut.";
     } else {
-        $scores = $_POST['scores'] ?? [];
-        $text_responses = $_POST['text_responses'] ?? [];
-        $mc_responses = $_POST['mc_responses'] ?? [];
+        // is_array(), weil scores[5][0]=x dafuer sorgt, dass hier ein Array
+        // statt einer Zeichenkette steht - trim() bricht darueber mit einem
+        // TypeError ab, und die Seite antwortet mit einem Fehler 500.
+        $scores = is_array($_POST['scores'] ?? null) ? $_POST['scores'] : [];
+        $text_responses = is_array($_POST['text_responses'] ?? null) ? $_POST['text_responses'] : [];
+        $mc_responses = is_array($_POST['mc_responses'] ?? null) ? $_POST['mc_responses'] : [];
         
         $stmt_ins = $conn->prepare("INSERT INTO feedback_responses (session_id, question_id, score, response_text) VALUES (?, ?, ?, ?)");
         
@@ -56,9 +64,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $score = isset($scores[$q_id]) ? (int)$scores[$q_id] : 3;
                 $score = max(1, min(5, $score));
             } elseif ($type === 'text') {
-                $response_text = isset($text_responses[$q_id]) ? trim($text_responses[$q_id]) : '';
+                $eingabe = $text_responses[$q_id] ?? '';
+                // Gekuerzt, nicht abgewiesen: wer zu viel schreibt, soll
+                // seine Rueckmeldung nicht verlieren. 2000 Zeichen sind rund
+                // eine DIN-A4-Seite.
+                $response_text = is_string($eingabe)
+                    ? mb_substr(trim($eingabe), 0, FEEDBACK_MAX_TEXT)
+                    : '';
             } elseif ($type === 'mc') {
-                $response_text = isset($mc_responses[$q_id]) ? trim($mc_responses[$q_id]) : '';
+                // Gegen die hinterlegten Antwortmoeglichkeiten geprueft. Die
+                // Radio-Schaltflaechen im Formular sind keine Pruefung - ein
+                // POST laesst sich von Hand schicken, und jeder unbekannte
+                // Wert legte in der Auswertung eine eigene Saeule an.
+                $eingabe = $mc_responses[$q_id] ?? '';
+                $response_text = is_string($eingabe) && Auswahloptionen::gueltig($q['options'] ?? null, $eingabe)
+                    ? trim($eingabe)
+                    : null;
             }
             
             $stmt_ins->execute([$session['id'], $q_id, $score, $response_text]);
@@ -77,7 +98,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Schüler-Feedback</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <!--
+        Die Schrift kommt vom eigenen Server.
+        Hier stand zuletzt als einzige Seite noch ein Verweis auf
+        fonts.googleapis.com. Uebertragen wurde dadurch nichts: die
+        Content-Security-Policy im Front Controller erlaubt fuer style-src
+        und font-src nur noch 'self', der Browser hat die Anfrage also gar
+        nicht erst gestellt. Wirksam war der Verweis damit nur noch in einer
+        Hinsicht - die Seite bekam ihre Schrift nicht und fiel auf die
+        Standardschrift des Geraets zurueck.
+    -->
+    <link href="/css/fonts.css" rel="stylesheet">
     <style>
         :root {
             --primary: #4a90e2;
@@ -244,9 +275,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php elseif ($type === 'mc'): ?>
                         <div style="display: flex; flex-direction: column; gap: 10px; text-align: left; padding: 0 5px;">
                             <?php 
-                            $opts = array_map('trim', explode(',', $q['options'] ?? ''));
-                            foreach ($opts as $key => $opt): 
-                                if (empty($opt)) continue;
+                            $opts = Auswahloptionen::aus($q['options'] ?? null);
+                            foreach ($opts as $key => $opt):
                                 $opt_id = "q" . $q['id'] . "_mc_" . $key;
                             ?>
                                 <div style="display: flex; align-items: center; gap: 10px;">

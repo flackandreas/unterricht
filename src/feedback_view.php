@@ -8,6 +8,8 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/error_page.php';
 
+use App\Feedback\Auswahloptionen;
+
 require_login();
 
 $session_id = (int)($_GET['id'] ?? 0);
@@ -50,11 +52,10 @@ foreach ($questions as $q) {
     if ($type === 'emoji') {
         $data[$q['id']]['scores'] = [1=>0, 2=>0, 3=>0, 4=>0, 5=>0];
     } elseif ($type === 'mc') {
-        $opts = array_map('trim', explode(',', $q['options'] ?? ''));
-        foreach ($opts as $opt) {
-            if (!empty($opt)) {
-                $data[$q['id']]['scores'][$opt] = 0;
-            }
+        // Dieselbe Zerlegung wie im Formular und beim Entgegennehmen der
+        // Antwort; vorher stand sie an jeder Stelle einzeln da.
+        foreach (Auswahloptionen::aus($q['options'] ?? null) as $opt) {
+            $data[$q['id']]['scores'][$opt] = 0;
         }
     }
 }
