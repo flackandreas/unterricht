@@ -41,7 +41,7 @@ final class HomeworkRepository
             LEFT JOIN (
                 SELECT s.assignment_id,
                        COUNT(*)                                        AS submission_count,
-                       COUNT(DISTINCT s.student_pseudonym)             AS student_count,
+                       COUNT(DISTINCT s.student_key)                   AS student_count,
                        SUM(s.status = 'evaluated')                     AS evaluated_count,
                        SUM(s.status IN ('pending','queued'))           AS pending_count,
                        SUM(e.review_status = 'draft')                  AS draft_count,
@@ -258,10 +258,24 @@ final class HomeworkRepository
         return array_reverse($zeilen);
     }
 
+    /**
+     * Wie viele verschiedene Personen haben zu dieser Aufgabe abgegeben?
+     *
+     * Gezaehlt wird ueber student_key. Vorher stand hier student_pseudonym -
+     * das ist aber je Einreichung neu gewuerfelt:
+     *
+     *     $pseudonym = 'Student_' . bin2hex(random_bytes(4));
+     *
+     * COUNT(DISTINCT student_pseudonym) war damit dasselbe wie COUNT(*).
+     * Wo "12 / 25 abgegeben" stand, zaehlten in Wirklichkeit die
+     * Einreichungen, und bis zu drei davon kommen von derselben Person
+     * (max_submissions_per_student). Die Uebersicht der Lehrkraft konnte so
+     * mehr Abgaben ausweisen, als die Klasse Koepfe hat.
+     */
     public function distinctStudentCount(int $assignmentId): int
     {
         $stmt = $this->conn->prepare(
-            'SELECT COUNT(DISTINCT student_pseudonym) FROM homework_submissions WHERE assignment_id = ?'
+            'SELECT COUNT(DISTINCT student_key) FROM homework_submissions WHERE assignment_id = ?'
         );
         $stmt->execute([$assignmentId]);
 

@@ -7,6 +7,18 @@
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 
+/**
+ * Bringt den Fragetyp auf einen der vorgesehenen Werte.
+ *
+ * emoji, text oder mc - alles andere wird zu emoji.
+ */
+function feedback_fragetyp(mixed $roh): string
+{
+    $typ = is_string($roh) ? trim($roh) : '';
+
+    return in_array($typ, ['emoji', 'text', 'mc'], true) ? $typ : 'emoji';
+}
+
 require_login();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -56,7 +68,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         foreach ($questions as $index => $q_data) {
             if (is_array($q_data)) {
                 $q_text = trim($q_data['text'] ?? '');
-                $q_type = trim($q_data['type'] ?? 'emoji');
+                // Der Fragetyp entscheidet, wie die Antwort entgegengenommen
+                // und ausgewertet wird. Stand hier etwas anderes als die drei
+                // vorgesehenen Werte, fiel die Frage in student_feedback.php
+                // durch alle Zweige: angezeigt wurde sie, antworten liess sich
+                // nicht, und in der Auswertung kam sie nicht vor.
+                $q_type = feedback_fragetyp($q_data['type'] ?? '');
                 $q_options = trim($q_data['options'] ?? '');
             } else {
                 $q_text = trim($q_data);
@@ -91,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 foreach ($questions as $index => $q_data) {
                     if (is_array($q_data)) {
                         $q_text = trim($q_data['text'] ?? '');
-                        $q_type = trim($q_data['type'] ?? 'emoji');
+                        $q_type = feedback_fragetyp($q_data['type'] ?? '');
                         $q_options = trim($q_data['options'] ?? '');
                     } else {
                         $q_text = trim($q_data);
@@ -109,7 +126,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         ]);
                     }
                 }
-                $_SESSION['flash_success'] = "Feedback-Sitzung gestartet und Vorlage \"" . htmlspecialchars($template_title) . "\" gespeichert.";
+                // Twig maskiert beim Ausgeben; htmlspecialchars() hier machte
+                // aus einem Anfuehrungszeichen im Titel ein sichtbares &quot;.
+                $_SESSION['flash_success'] = 'Feedback-Sitzung gestartet und Vorlage "' . $template_title . '" gespeichert.';
             } catch (PDOException $e) {
                 error_log("Failed to save template: " . $e->getMessage());
                 $_SESSION['flash_success'] = "Feedback-Sitzung gestartet (Vorlage speichern fehlgeschlagen).";

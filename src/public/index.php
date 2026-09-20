@@ -93,6 +93,14 @@ if (array_key_exists($request, $routes)) {
     exit;
 }
 
+// Welcher Controller laeuft gerade?
+//
+// $_SERVER['SCRIPT_NAME'] taugt dafuer nicht: hinter dem Front Controller
+// steht dort immer "/index.php", egal welche Seite aufgerufen wurde.
+// require_login() hat genau deshalb seine Ausnahme fuer change_password.php
+// nie gefunden - der Vergleich war toter Code.
+define('AKTUELLER_CONTROLLER', basename($file));
+
 // Load session, auth, and database migrations
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/migrations.php';

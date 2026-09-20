@@ -71,8 +71,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Bisher bremste nur ein sleep(1) - das haelt automatisiertes
         // Durchprobieren nicht auf.
         $ip = request_client_ip();
-        if (!rate_limit_allow($conn, 'login_ip', $ip, 15, 900)
-            || !rate_limit_allow($conn, 'login_user', mb_strtolower($kuerzel), 8, 900)) {
+        // Hier ohne Netz: laesst sich die Zaehltabelle nicht lesen, wird
+        // abgewiesen statt durchgelassen. Sonst genuegte es, die Tabelle
+        // unbrauchbar zu machen, um unbegrenzt Passwoerter durchprobieren zu
+        // koennen - der Schutz fiele genau dann aus, wenn er gebraucht wird.
+        if (!rate_limit_allow($conn, 'login_ip', $ip, 15, 900, false)
+            || !rate_limit_allow($conn, 'login_user', mb_strtolower($kuerzel), 8, 900, false)) {
             http_response_code(429);
             $_SESSION['flash_error'] = "Zu viele Anmeldeversuche. Bitte warten Sie einige Minuten.";
             $user = false;

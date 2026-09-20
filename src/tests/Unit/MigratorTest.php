@@ -90,6 +90,47 @@ final class MigratorTest extends TestCase
         }
     }
 
+    /**
+     * Ein untergeschobener Vermerk mit dem richtigen Fingerabdruck wuerde
+     * die Anwendung fuer migriert halten lassen. Deshalb zaehlt nur eine
+     * gewoehnliche Datei, die uns selbst gehoert.
+     */
+    public function testSymlinkGiltNichtAlsVermerk(): void
+    {
+        $migrator = new Migrator(null, $this->stateFile);
+
+        $echt = $this->stateFile . '.ziel';
+        file_put_contents($echt, $migrator->fingerprint());
+        symlink($echt, $this->stateFile);
+
+        try {
+            self::assertFalse($migrator->isUpToDate(), 'ein Symlink zaehlt nicht');
+        } finally {
+            @unlink($this->stateFile);
+            @unlink($echt);
+        }
+    }
+
+    public function testSymlinkWirdNichtBeschrieben(): void
+    {
+        $migrator = new Migrator(null, $this->stateFile);
+
+        $ziel = $this->stateFile . '.ziel';
+        file_put_contents($ziel, 'unberuehrt');
+        symlink($ziel, $this->stateFile);
+
+        $schreiben = new \ReflectionMethod(Migrator::class, 'schreibeVermerk');
+        $schreiben->setAccessible(true);
+
+        try {
+            $schreiben->invoke(null, $this->stateFile, 'neuer Inhalt');
+            self::assertSame('unberuehrt', file_get_contents($ziel), 'das Ziel bleibt unangetastet');
+        } finally {
+            @unlink($this->stateFile);
+            @unlink($ziel);
+        }
+    }
+
     public function testFingerprintIstStabil(): void
     {
         $a = (new Migrator(null, $this->stateFile))->fingerprint();

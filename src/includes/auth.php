@@ -28,7 +28,7 @@ if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) >
 }
 $_SESSION['last_activity'] = time();
 
-function is_logged_in() {
+function is_logged_in(): bool {
     return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
 }
 
@@ -47,7 +47,7 @@ function is_logged_in() {
  * den Primaerschluessel; die Luecke schrumpft damit von vier Stunden auf
  * eine Minute.
  */
-function auth_refresh() {
+function auth_refresh(): void {
     if (!is_logged_in()) {
         return;
     }
@@ -85,40 +85,50 @@ function auth_refresh() {
     $_SESSION['force_password_change'] = (int)$konto['force_password_change'];
 }
 
-function require_login() {
+function require_login(): void {
     if (!is_logged_in()) {
         header("Location: /login.php");
         exit;
     }
 
     auth_refresh();
-    // Check if password change is forced
+
+    // Erzwungener Passwortwechsel.
+    //
+    // Der Vergleich lief frueher ueber basename($_SERVER['SCRIPT_NAME']).
+    // Hinter dem Front Controller steht dort immer "index.php" - die
+    // Ausnahme fuer change_password.php und logout.php hat also nie
+    // gegriffen. Dass daraus keine Endlosschleife wurde, lag allein daran,
+    // dass diese beiden Seiten require_login() gar nicht aufriefen.
     if (isset($_SESSION['force_password_change']) && $_SESSION['force_password_change'] == 1) {
-        $current_script = basename($_SERVER['SCRIPT_NAME']);
-        if ($current_script !== 'change_password.php' && $current_script !== 'logout.php') {
+        $aktuell = defined('AKTUELLER_CONTROLLER')
+            ? AKTUELLER_CONTROLLER
+            : basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+
+        if (!in_array($aktuell, ['change_password.php', 'logout.php'], true)) {
             header("Location: /change_password.php");
             exit;
         }
     }
 }
 
-function get_current_user_id() {
-    return $_SESSION['user_id'] ?? null;
+function get_current_user_id(): ?int {
+    return isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 }
 
-function get_current_user_name() {
-    return $_SESSION['user_name'] ?? null;
+function get_current_user_name(): ?string {
+    return isset($_SESSION['user_name']) ? (string)$_SESSION['user_name'] : null;
 }
 
-function get_current_user_kuerzel() {
-    return $_SESSION['user_kuerzel'] ?? null;
+function get_current_user_kuerzel(): ?string {
+    return isset($_SESSION['user_kuerzel']) ? (string)$_SESSION['user_kuerzel'] : null;
 }
 
-function is_current_user_admin() {
+function is_current_user_admin(): bool {
     return isset($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1;
 }
 
-function require_admin() {
+function require_admin(): void {
     require_login();
     if (!is_current_user_admin()) {
         header("Location: /index.php");
@@ -127,10 +137,11 @@ function require_admin() {
 }
 
 /**
- * Validates a Kürzel and Password against the database.
- * Returns user data on success, false on failure.
+ * Prueft Kuerzel und Passwort gegen die Datenbank.
+ *
+ * @return array<string,mixed>|false Kontodaten, oder false
  */
-function authenticate_user($conn, $kuerzel, $password) {
+function authenticate_user(PDO $conn, string $kuerzel, string $password): array|false {
     if (empty($kuerzel) || empty($password)) {
         return false;
     }
@@ -149,7 +160,7 @@ function authenticate_user($conn, $kuerzel, $password) {
 /**
  * Simple CSRF token generation
  */
-function get_csrf_token() {
+function get_csrf_token(): string {
     if (empty($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
@@ -159,7 +170,7 @@ function get_csrf_token() {
 /**
  * Simple CSRF token validation
  */
-function verify_csrf_token($token) {
+function verify_csrf_token(mixed $token): bool {
     if (empty($_SESSION['csrf_token']) || empty($token) || !is_string($token)) {
         return false;
     }

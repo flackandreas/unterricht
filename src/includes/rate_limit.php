@@ -11,14 +11,21 @@
 /**
  * Zaehlt einen Zugriff und meldet, ob das Limit noch eingehalten wird.
  *
- * @param string $action  Bezeichner des Vorgangs, z.B. "homework_submit"
- * @param string $subject Wer/was begrenzt wird, z.B. eine IP oder ein Token
- * @param int    $limit   Erlaubte Zugriffe im Zeitfenster
- * @param int    $window  Laenge des Zeitfensters in Sekunden
+ * @param string $action    Bezeichner des Vorgangs, z.B. "homework_submit"
+ * @param string $subject   Wer/was begrenzt wird, z.B. eine IP oder ein Token
+ * @param int    $limit     Erlaubte Zugriffe im Zeitfenster
+ * @param int    $window    Laenge des Zeitfensters in Sekunden
+ * @param bool   $beiFehler Was gilt, wenn die Zaehltabelle nicht lesbar ist
+ *
+ * $beiFehler entscheidet eine Abwaegung, die je Aufrufstelle anders ausgeht.
+ * true laesst durch: eine kaputte Zaehltabelle soll keine Hausaufgabe
+ * verhindern. false weist ab: beim Anmelden ist die Begrenzung der einzige
+ * Schutz gegen das Durchprobieren von Passwoertern, und der faellt sonst
+ * genau dann aus, wenn jemand ihn stoert.
  *
  * @return bool true = erlaubt, false = Limit ueberschritten
  */
-function rate_limit_allow(PDO $conn, string $action, string $subject, int $limit, int $window): bool {
+function rate_limit_allow(PDO $conn, string $action, string $subject, int $limit, int $window, bool $beiFehler = true): bool {
     $bucket = $action . ':' . hash('sha256', $subject);
     $window = max(1, $window);
 
@@ -36,9 +43,14 @@ function rate_limit_allow(PDO $conn, string $action, string $subject, int $limit
         $stmt->execute([$bucket]);
         $hits = (int)$stmt->fetchColumn();
     } catch (PDOException $e) {
-        // Ein Fehler in der Zaehltabelle darf die Anwendung nicht blockieren.
-        error_log('Rate-Limit-Pruefung fehlgeschlagen: ' . $e->getMessage());
-        return true;
+        error_log(sprintf(
+            'Rate-Limit-Pruefung fehlgeschlagen (action=%s, %s): %s',
+            $action,
+            $beiFehler ? 'wird durchgelassen' : 'wird abgewiesen',
+            $e->getMessage()
+        ));
+
+        return $beiFehler;
     }
 
     if ($hits > $limit) {
