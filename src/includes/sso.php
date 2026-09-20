@@ -36,6 +36,58 @@ function sso_konfiguration(): Konfiguration
     return $konfiguration;
 }
 
+/**
+ * Die registrierbare Domain eines Hostnamens - naeherungsweise.
+ *
+ * Genau ginge das nur mit der Public Suffix List. Fuer die Frage hier
+ * genuegt die Naeherung "die letzten beiden Bestandteile": sie kann eine
+ * Warnung uebersehen (zwei Schulen unter derselben Landesdomain), aber keine
+ * falsche ausloesen - und eine uebersehene Warnung ist der Zustand von
+ * heute.
+ */
+function sso_domain(string $host): string
+{
+    $host = strtolower(trim($host));
+    $host = (string) preg_replace('/:\d+$/', '', $host);
+    $teile = array_values(array_filter(explode('.', $host), static fn(string $t): bool => $t !== ''));
+
+    if (count($teile) < 2) {
+        return $host;
+    }
+
+    return implode('.', array_slice($teile, -2));
+}
+
+/**
+ * Liegen Portal und Modul unter derselben Domain?
+ *
+ * Das Sitzungscookie traegt SameSite=Strict. Der Browser schickt es dann bei
+ * jedem Wechsel von einer anderen Site nicht mit - auch nicht beim Rueckweg
+ * vom Portal, obwohl das eine gewoehnliche Weiterleitung ist. Die Anmeldung
+ * kommt dann ohne den vorher gemerkten state zurueck und scheitert mit
+ * "state stimmt nicht": eine Meldung, die nach Angriff klingt und in
+ * Wahrheit eine falsch eingetragene Adresse bedeutet.
+ *
+ * Unterdomains derselben Domain sind dabei kein Wechsel. portal.schule.de
+ * und unterricht.schule.de gehoeren zusammen, portal.schule.de und
+ * unterricht.example.org nicht.
+ *
+ * Nur ein Hinweis, keine Sperre: fuer einen anderen Aufbau - etwa ein Portal
+ * beim Schultraeger - waere SameSite=Lax der Weg, und das ist eine
+ * Entscheidung, keine Fehlkonfiguration.
+ */
+function sso_gleiche_domain(): ?bool
+{
+    $portal = (string) parse_url((string) env('PORTAL_ISSUER', ''), PHP_URL_HOST);
+    $eigen = function_exists('request_host') ? request_host() : '';
+
+    if ($portal === '' || $eigen === '') {
+        return null; // Auf der Kommandozeile gibt es keinen eigenen Host.
+    }
+
+    return sso_domain($portal) === sso_domain($eigen);
+}
+
 /** Laeuft dieses Modul am Portal? */
 function sso_aktiv(): bool
 {
@@ -48,7 +100,21 @@ function sso_aktiv(): bool
         error_log('Unterricht: Portal-Anbindung unvollstaendig, es fehlt: PORTAL_' . implode(', PORTAL_', $fehlt));
     }
 
-    return $konfiguration->aktiv();
+    $aktiv = $konfiguration->aktiv();
+
+    static $gewarnt = false;
+    if ($aktiv && !$gewarnt && sso_gleiche_domain() === false) {
+        $gewarnt = true;
+        error_log(sprintf(
+            'Unterricht: PORTAL_ISSUER (%s) und dieses Modul (%s) liegen unter verschiedenen Domains. '
+            . 'Das Sitzungscookie traegt SameSite=Strict und wird auf dem Rueckweg vom Portal nicht '
+            . 'mitgeschickt - die Anmeldung scheitert dann mit "state stimmt nicht".',
+            (string) env('PORTAL_ISSUER', ''),
+            request_host()
+        ));
+    }
+
+    return $aktiv;
 }
 
 function sso_anmeldung(): Anmeldung

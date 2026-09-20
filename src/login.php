@@ -45,60 +45,16 @@ if ($portalAktiv && !isset($_GET['lokal']) && $_SERVER['REQUEST_METHOD'] !== 'PO
     exit;
 }
 
-// Anmeldung ueber einen Token in der Adresszeile. Stammt aus der Zeit, als
-// sich zwei Module gegenseitig verlinkt haben; am Portal wird sie nicht mehr
-// gebraucht und ist deshalb dort aus.
-if (!$portalAktiv && isset($_GET['autologin']) && $_GET['autologin'] === '1') {
-    $kuerzel = trim($_GET['kuerzel'] ?? '');
-    $token = $_GET['token'] ?? '';
-    
-    if (!empty($kuerzel) && !empty($token)) {
-        $conn = db_connect();
-
-        if (!rate_limit_allow($conn, 'autologin', request_client_ip(), 20, 900)) {
-            error_page("Zu viele Anmeldeversuche", "Bitte warten Sie einige Minuten, bevor Sie es erneut versuchen.", 429, "/login.php");
-        }
-
-        $stmt = $conn->prepare("SELECT * FROM teachers WHERE kuerzel = ? LIMIT 1");
-        $stmt->execute([$kuerzel]);
-        $user = $stmt->fetch();
-        
-        if ($user) {
-            $sso_secret = $_ENV['SSO_SECRET'] ?? getenv('SSO_SECRET') ?: '';
-            $token_valid = false;
-
-            // Das Secret signiert den Autologin-Token. Ein kurzes, sprechendes
-            // Passwort laesst sich offline durchprobieren.
-            if (!empty($sso_secret) && strlen($sso_secret) < 32) {
-                error_log('WARNUNG: SSO_SECRET ist kürzer als 32 Zeichen und sollte durch einen Zufallswert ersetzt werden.');
-            }
-
-            if (!empty($sso_secret)) {
-                $time_bucket = floor(time() / 300);
-                for ($i = 0; $i <= 1; $i++) {
-                    $bucket = $time_bucket - $i;
-                    $expected = hash('sha256', $user['kuerzel'] . $sso_secret . $bucket);
-                    if (hash_equals($expected, $token)) {
-                        $token_valid = true;
-                        break;
-                    }
-                }
-            }
-            
-            if ($token_valid) {
-                session_regenerate_id(true);
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['user_kuerzel'] = $user['kuerzel'];
-                $_SESSION['user_name'] = $user['name'];
-                $_SESSION['is_admin'] = $user['is_admin'];
-                $_SESSION['force_password_change'] = $user['force_password_change'];
-                
-                header("Location: /index.php");
-                exit;
-            }
-        }
-    }
-}
+// Hier wurde bis zuletzt eine Anmeldung ueber einen Token in der Adresszeile
+// entgegengenommen (?autologin=1&kuerzel=...&token=...). Sie stammte aus der
+// Zeit, als sich zwei Module gegenseitig verlinkt haben.
+//
+// Ein Anmeldeausweis in einer Adresse steht im Zugriffsprotokoll des
+// Webservers, im Verlauf des Browsers und im Referrer. Er war zehn Minuten
+// gueltig und ersetzte das Passwort vollstaendig. Am Portal wurde er ohnehin
+// nicht mehr ausgewertet; jetzt nirgends mehr. Die Kachel im anderen Modul
+// verweist auf dessen Startseite, und die Anmeldung laeuft ueber das Portal
+// oder ueber das Formular unten.
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $kuerzel = trim($_POST['kuerzel'] ?? '');

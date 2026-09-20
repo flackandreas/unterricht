@@ -22,6 +22,19 @@ try {
     $identitaet = $anmeldung->abschliessen($_GET);
 } catch (SsoFehler $e) {
     error_log('Unterricht: Anmeldung ueber das Portal gescheitert: ' . $e->getMessage());
+
+    // Der haeufigste Grund fuer ein fehlendes oder abweichendes state ist
+    // kein Angriff, sondern eine Adresse: liegt das Portal unter einer
+    // anderen Domain als das Modul, schickt der Browser das Sitzungscookie
+    // auf dem Rueckweg nicht mit (SameSite=Strict), und der gemerkte Wert
+    // ist schlicht weg.
+    if (sso_gleiche_domain() === false) {
+        error_log(
+            'Unterricht: Portal und Modul liegen unter verschiedenen Domains - '
+            . 'siehe PORTAL_ISSUER. Das ist der wahrscheinliche Grund.'
+        );
+    }
+
     error_page(
         'Anmeldung nicht abgeschlossen',
         'Die Anmeldung über das Portal konnte nicht abgeschlossen werden. Bitte erneut versuchen.',

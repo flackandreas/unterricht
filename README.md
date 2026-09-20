@@ -183,7 +183,7 @@ unterricht/
     │   ├── Substitute/         # Vertretungsstunden: Warteschlange und Ablauf
     │   └── Support/            # Datenbank, Migrationen, Audit, Aufbewahrung
     ├── bin/                    # CLI: migrate, worker, retention, migrate_uploads
-    ├── config/                 # Konfigurationsdateien (DB, Mail, Untis)
+    ├── config/                 # Datenbankverbindung (Zugaenge kommen aus der Umgebung)
     ├── includes/               # Prozedurale Helfer (Auth, Storage, Rate-Limit, Request)
     ├── storage/                # Uploads & Cache, außerhalb des DocumentRoot
     ├── tests/                  # PHPUnit-Tests
