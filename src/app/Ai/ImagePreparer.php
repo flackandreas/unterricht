@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Ai;
 
+use App\Support\Bildgrenzen;
+
 /**
  * Bereitet Bilder fuer den Versand an das Modell vor.
  *
@@ -59,6 +61,21 @@ final class ImagePreparer
         $groessteKante = max($breite, $hoehe);
 
         if ($groessteKante <= self::MAX_EDGE) {
+            return null;
+        }
+
+        // Die Masse sind bekannt, das Bild ist aber noch nicht dekodiert -
+        // genau hier gehoert die Grenze hin. Sonst legt imagecreatefrompng()
+        // Breite x Hoehe x 4 Byte an, und der Worker stirbt mitten im
+        // Auftrag; der naechste Versuch trifft dieselbe Datei.
+        if ($breite * $hoehe > Bildgrenzen::MAX_PIXEL
+            || $groessteKante > Bildgrenzen::MAX_KANTE) {
+            error_log(sprintf(
+                'ImagePreparer: %dx%d uebersteigt die Groessengrenze, Datei wird unveraendert gesendet.',
+                $breite,
+                $hoehe
+            ));
+
             return null;
         }
 

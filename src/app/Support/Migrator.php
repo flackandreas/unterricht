@@ -15,6 +15,14 @@ use PDOException;
  * Zustandsvermerk in storage/, welcher Satz an Migrationsdateien zuletzt
  * vollstaendig durchgelaufen ist. Solange der Satz unveraendert ist, kostet
  * der Aufruf eine Dateipruefung und keine einzige Datenbankabfrage.
+ *
+ * Scheitert eine Migration, wird das ebenfalls vermerkt. Ohne diesen Vermerk
+ * bleibt der Zustand "nicht aktuell" fuer immer bestehen, und der gesamte
+ * Durchlauf - CREATE TABLE IF NOT EXISTS, Selbstheilung, SELECT auf
+ * migration_log und der erneute Versuch der kaputten Datei - wiederholte
+ * sich bei JEDEM Request. Eine einzige fehlerhafte Anweisung machte damit
+ * genau die Last dauerhaft, die der Vermerk vermeiden soll, und schrieb
+ * dabei bei jedem Aufruf ins Fehlerprotokoll.
  */
 final class Migrator
 {
@@ -50,6 +58,9 @@ final class Migrator
         'alter_substitute_plans.sql',
         'alter_portal_konten.sql',
     ];
+
+    /** Wartezeit nach einem gescheiterten Durchlauf, in Sekunden. */
+    private const FEHLER_PAUSE = 300;
 
     private string $migrationDir;
     private string $stateFile;
@@ -100,6 +111,37 @@ final class Migrator
     {
         return is_file($this->stateFile)
             && trim((string)@file_get_contents($this->stateFile)) === $this->fingerprint();
+    }
+
+    /**
+     * Wo der Vermerk ueber einen gescheiterten Durchlauf liegt.
+     */
+    private function fehlerVermerk(): string
+    {
+        return $this->stateFile . '.fehler';
+    }
+
+    /**
+     * Ist derselbe Satz gerade erst gescheitert?
+     *
+     * Nur derselbe: aendert sich der Satz an Migrationsdateien, ist der
+     * Vermerk hinfaellig und der naechste Aufruf laeuft sofort wieder.
+     *
+     * Gilt nur fuer den automatischen Lauf aus dem Request heraus. Wer
+     * bin/migrate.php von Hand aufruft, will migrieren und wartet nicht.
+     */
+    public function kuerzlichGescheitert(): bool
+    {
+        $inhalt = is_file($this->fehlerVermerk())
+            ? (string)@file_get_contents($this->fehlerVermerk())
+            : '';
+
+        $teile = explode("\n", trim($inhalt));
+        if (count($teile) !== 2 || $teile[0] !== $this->fingerprint()) {
+            return false;
+        }
+
+        return (time() - (int)$teile[1]) < self::FEHLER_PAUSE;
     }
 
     /**
@@ -157,6 +199,9 @@ final class Migrator
 
         if ($fehler === []) {
             $this->markComplete();
+            @unlink($this->fehlerVermerk());
+        } else {
+            $this->markFailed();
         }
 
         return ['ausgefuehrt' => $ausgefuehrt, 'uebersprungen' => $uebersprungen, 'fehler' => $fehler];
@@ -197,11 +242,23 @@ final class Migrator
 
     private function markComplete(): void
     {
+        $this->verzeichnisAnlegen();
+
+        @file_put_contents($this->stateFile, $this->fingerprint());
+    }
+
+    private function markFailed(): void
+    {
+        $this->verzeichnisAnlegen();
+
+        @file_put_contents($this->fehlerVermerk(), $this->fingerprint() . "\n" . time());
+    }
+
+    private function verzeichnisAnlegen(): void
+    {
         $verzeichnis = dirname($this->stateFile);
         if (!is_dir($verzeichnis)) {
             mkdir($verzeichnis, 0750, true);
         }
-
-        @file_put_contents($this->stateFile, $this->fingerprint());
     }
 }

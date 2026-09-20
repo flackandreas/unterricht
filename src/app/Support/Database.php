@@ -46,6 +46,23 @@ final class Database
     }
 
     /**
+     * Verwirft die gemerkte Verbindung und baut eine neue auf.
+     *
+     * Fuer den Worker: der laeuft als Dauerprozess und haelt seine Verbindung
+     * ueber Stunden. Startet die Datenbank neu - beim Update, beim Neustart
+     * des Rechners -, ist die gemerkte Verbindung tot. Bisher versuchte der
+     * Worker es danach alle zehn Sekunden mit genau derselben toten
+     * Verbindung weiter, bis jemand ihn von Hand neu startete; Auswertungen
+     * blieben in der Warteschlange stehen, ohne dass etwas darauf hinwies.
+     */
+    public static function reconnect(): PDO
+    {
+        self::$connection = null;
+
+        return self::connection();
+    }
+
+    /**
      * Nur fuer Tests: setzt die gemerkte Verbindung zurueck.
      */
     public static function reset(): void

@@ -10,6 +10,7 @@
 
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/rate_limit.php';
 require_once __DIR__ . '/includes/request.php';
 require_once __DIR__ . '/includes/twig_setup.php';
 
@@ -57,6 +58,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash_error'] = 'Diese Klasse gehört nicht zu deinen.';
         } elseif ($fach === '' || preg_match('/^\d{4}-\d{2}-\d{2}$/', $datum) !== 1) {
             $_SESSION['flash_error'] = 'Fach und Datum werden gebraucht.';
+        } elseif (!rate_limit_allow($conn, 'vertretung_request', (string)$teacher_id, 20, 3600)) {
+            // Jede Anforderung stellt einen Auftrag in die Warteschlange, und
+            // jeder Auftrag kostet einen Aufruf des Modells. Alle anderen
+            // Stellen, die das tun - ai_summary, rephrase_level - sind
+            // begrenzt, diese war es nicht: ein Formular, das sich in einer
+            // Schleife abschicken laesst, fuellt die Warteschlange und die
+            // Rechnung. 20 Entwuerfe je Stunde sind mehr, als an einem
+            // Vormittag anfallen.
+            $_SESSION['flash_error'] = 'Zu viele Anforderungen in kurzer Zeit. '
+                . 'Bitte versuche es in einer Stunde erneut.';
         } else {
             $plan_id = $service->request(
                 $teacher_id,

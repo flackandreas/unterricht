@@ -30,6 +30,13 @@ function run_all_migrations(): void {
         return;
     }
 
+    // Scheiterte derselbe Satz gerade erst, wird nicht bei jedem Request
+    // nachgesetzt. Sonst laeuft der komplette Durchlauf wieder und wieder
+    // gegen dieselbe kaputte Anweisung - inklusive Eintrag im Protokoll.
+    if ($migrator->kuerzlichGescheitert()) {
+        return;
+    }
+
     if (env('AUTO_MIGRATE', '1') !== '1') {
         error_log('Es stehen Migrationen aus. AUTO_MIGRATE ist deaktiviert - bitte php bin/migrate.php ausführen.');
         return;

@@ -23,6 +23,7 @@ use App\Homework\Gamification;
 use App\Homework\HomeworkRepository;
 use App\Homework\SubmissionService;
 use App\Support\AuditLog;
+use App\Support\Bildgrenzen;
 use App\Support\UsageRecorder;
 
 require_login();
@@ -106,6 +107,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (!isset($erlaubt[$mimeType])) {
                 redirect_back('/admin_homework.php', null, 'Ungültiges Dateiformat für das Kontextdokument. Nur JPG, PNG, WEBP oder PDF.');
+            }
+
+            if (Bildgrenzen::zuGross($file['tmp_name'])) {
+                redirect_back('/admin_homework.php', null, Bildgrenzen::meldung());
             }
 
             // Musterlösungen liegen außerhalb des DocumentRoot.
