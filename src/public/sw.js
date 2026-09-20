@@ -1,4 +1,4 @@
-const CACHE_NAME = 'schul-app-v4';
+const CACHE_NAME = 'schul-app-v5';
 const urlsToCache = [
   '/css/app_styles.css',
   '/js/app.js',
@@ -42,10 +42,23 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     fetch(event.request)
       .then(response => {
+        // Die hinterlegte Fassung mitziehen, solange Netz da ist. Ohne das
+        // bleibt im Cache ewig der Stand vom ersten Besuch stehen:
+        // CACHE_NAME aendert sich nur von Hand, und install() laeuft nur,
+        // wenn sich diese Datei aendert.
+        if (urlsToCache.includes(url.pathname) && response.ok) {
+          const kopie = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(url.pathname, kopie));
+        }
+
         return response;
       })
       .catch(() => {
-        return caches.match(event.request)
+        // ignoreSearch, weil asset() an jede Adresse ein ?v=<Zeitstempel>
+        // haengt: /js/live.js?v=1699... Im Cache liegt /js/live.js, und
+        // ohne diese Angabe hat caches.match() nie getroffen - der
+        // Offline-Cache war seit Einfuehrung der Versionierung wirkungslos.
+        return caches.match(event.request, { ignoreSearch: true })
           .then(cachedResponse => {
             if (cachedResponse) return cachedResponse;
             return new Response('Offline: Bitte stellen Sie eine Internetverbindung her.');

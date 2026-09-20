@@ -169,7 +169,7 @@
 
     <div class="portal-grid">
         <!-- Card: Antragsverwaltung -->
-        <a href="{{ url_antraege }}" class="portal-card" {% if url_antraege == '#' %}onclick="alert('SSO-Verbindung ist deaktiviert (SSO_SECRET ist nicht konfiguriert).'); return false;"{% endif %}>
+        <a href="{{ url_antraege }}" class="portal-card">
             <div>
                 <div class="portal-icon">{{ symbol.zeichne('buch', 32) }}</div>
                 <h2 class="card-title">Antragsverwaltung</h2>

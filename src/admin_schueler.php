@@ -102,7 +102,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'archive' || $action === 'restore') {
         $student_id = (int)($_POST['student_id'] ?? 0);
 
-        if ($student_id > 0) {
+        if ($student_id > 0 && !$roster->belongsToClass($student_id, $class_id)) {
+            $_SESSION['flash_error'] = 'Dieser Eintrag gehört nicht zur angezeigten Klasse.';
+        } elseif ($student_id > 0) {
             $roster->setArchived($student_id, $action === 'archive');
             $audit->record(
                 get_current_user_id(),

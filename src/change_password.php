@@ -8,11 +8,11 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/twig_setup.php';
 
-// Check if user is logged in
-if (!is_logged_in()) {
-    header("Location: /login.php");
-    exit;
-}
+// require_login() kennt jetzt die Ausnahme fuer diese Seite - vorher haette
+// der Aufruf hier eine Endlosschleife ergeben, deshalb stand hier eine
+// eigene Pruefung. Der Weg ueber require_login() gleicht nebenbei die Rolle
+// mit der Datenbank ab.
+require_login();
 
 $user_id = get_current_user_id();
 $conn = db_connect();

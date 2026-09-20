@@ -229,6 +229,24 @@ final class Roster
      * unterrichtet. Zugriffsschutz gehoert in die Abfrage, nicht in die
      * Oberflaeche.
      */
+    /**
+     * Gehoert dieser Eintrag zu dieser Klasse?
+     *
+     * Archivieren und Zurueckholen nahmen die student_id aus dem Formular,
+     * ohne sie gegen die angezeigte Klasse zu pruefen. Die Verwaltung darf
+     * ohnehin jede Klasse bearbeiten - der Protokolleintrag nannte dann aber
+     * die gerade angezeigte Klasse und nicht die, zu der der Eintrag
+     * gehoert. Ein Protokoll, das den falschen Ort nennt, ist schlechter als
+     * keines.
+     */
+    public function belongsToClass(int $studentId, int $classId): bool
+    {
+        $stmt = $this->conn->prepare('SELECT 1 FROM students WHERE id = ? AND class_id = ? LIMIT 1');
+        $stmt->execute([$studentId, $classId]);
+
+        return $stmt->fetchColumn() !== false;
+    }
+
     public function belongsToTeacher(int $studentId, int $teacherId): bool
     {
         $stmt = $this->conn->prepare('

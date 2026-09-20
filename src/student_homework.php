@@ -24,6 +24,7 @@ use App\Homework\EvaluationQueue;
 use App\Homework\Gamification;
 use App\Homework\HomeworkRepository;
 use App\Homework\SubmissionService;
+use App\Support\Bildgrenzen;
 
 $conn = db_connect();
 $repository = new HomeworkRepository($conn);
@@ -301,6 +302,14 @@ function handle_submission(array $assignment, PDO $conn, SubmissionService $serv
         return "Nur JPG, PNG oder WEBP Bilder sind erlaubt. Erkannt: " . htmlspecialchars($mimeType);
     }
 
+    // Vor GD, nicht nach GD: Bildmasse lesen kostet nur den Dateikopf, das
+    // Dekodieren dagegen Breite x Hoehe x 4 Byte. Ein kleines PNG mit
+    // 30.000 Pixeln Kantenlaenge belegt dabei 3,6 GB und nimmt den Prozess
+    // mit.
+    if (Bildgrenzen::zuGross($file['tmp_name'])) {
+        return Bildgrenzen::meldung();
+    }
+
     // Ablage ausserhalb des DocumentRoot, Dateiname aus dem Zufallsgenerator.
     $relativePath = storage_store_upload($file['tmp_name'], 'homework', $erlaubt[$mimeType]);
     $destination = $relativePath !== null ? storage_resolve($relativePath) : null;
@@ -381,6 +390,14 @@ function build_criteria_view(array $criteria, array $scores): array {
  */
 function autoRotateImage(string $imagePath): void {
     if (!is_file($imagePath) || !function_exists('exif_read_data')) {
+        return;
+    }
+
+    // Zweite Ebene hinter der Pruefung beim Hochladen: Dateien koennen aus
+    // einem frueheren Bestand stammen, in dem es die Grenze noch nicht gab.
+    // Lieber ungedreht als gar nicht.
+    if (Bildgrenzen::zuGross($imagePath)) {
+        error_log('autoRotateImage: Bild uebersteigt die Groessengrenze, nicht gedreht: ' . $imagePath);
         return;
     }
 

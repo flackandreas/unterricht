@@ -15,6 +15,14 @@ use PDOException;
  * Zustandsvermerk in storage/, welcher Satz an Migrationsdateien zuletzt
  * vollstaendig durchgelaufen ist. Solange der Satz unveraendert ist, kostet
  * der Aufruf eine Dateipruefung und keine einzige Datenbankabfrage.
+ *
+ * Scheitert eine Migration, wird das ebenfalls vermerkt. Ohne diesen Vermerk
+ * bleibt der Zustand "nicht aktuell" fuer immer bestehen, und der gesamte
+ * Durchlauf - CREATE TABLE IF NOT EXISTS, Selbstheilung, SELECT auf
+ * migration_log und der erneute Versuch der kaputten Datei - wiederholte
+ * sich bei JEDEM Request. Eine einzige fehlerhafte Anweisung machte damit
+ * genau die Last dauerhaft, die der Vermerk vermeiden soll, und schrieb
+ * dabei bei jedem Aufruf ins Fehlerprotokoll.
  */
 final class Migrator
 {
@@ -50,6 +58,9 @@ final class Migrator
         'alter_substitute_plans.sql',
         'alter_portal_konten.sql',
     ];
+
+    /** Wartezeit nach einem gescheiterten Durchlauf, in Sekunden. */
+    private const FEHLER_PAUSE = 300;
 
     private string $migrationDir;
     private string $stateFile;
@@ -98,8 +109,71 @@ final class Migrator
      */
     public function isUpToDate(): bool
     {
-        return is_file($this->stateFile)
+        return self::vermerkLesbar($this->stateFile)
             && trim((string)@file_get_contents($this->stateFile)) === $this->fingerprint();
+    }
+
+    /**
+     * Darf dieser Vermerk gelesen werden?
+     *
+     * Die Vermerke liegen im temporaeren Verzeichnis unter einem Namen, der
+     * sich aus DB_HOST und DB_NAME berechnet - also vorhersagbar ist. In
+     * einem Container ist /tmp privat und die Frage stellt sich nicht. Laeuft
+     * PHP dagegen auf einem geteilten Rechner, kann dort jeder andere
+     * Benutzer eine Datei anlegen:
+     *
+     *   - mit dem richtigen Fingerabdruck darin, dann haelt sich die
+     *     Anwendung fuer migriert und laeuft gegen ein altes Schema;
+     *   - als Symlink, dann schreibt @file_put_contents() an dessen Ziel.
+     *
+     * Ein Vermerk zaehlt deshalb nur, wenn er eine gewoehnliche Datei ist und
+     * uns selbst gehoert. Im Zweifel wird er ignoriert - dann laeuft die
+     * Migration eben, und die Datenbank fuehrt ohnehin Buch.
+     */
+    private static function vermerkLesbar(string $datei): bool
+    {
+        if (!is_file($datei) || is_link($datei)) {
+            return false;
+        }
+
+        if (!function_exists('posix_geteuid')) {
+            return true;
+        }
+
+        $besitzer = @fileowner($datei);
+
+        return $besitzer !== false && $besitzer === posix_geteuid();
+    }
+
+    /**
+     * Wo der Vermerk ueber einen gescheiterten Durchlauf liegt.
+     */
+    private function fehlerVermerk(): string
+    {
+        return $this->stateFile . '.fehler';
+    }
+
+    /**
+     * Ist derselbe Satz gerade erst gescheitert?
+     *
+     * Nur derselbe: aendert sich der Satz an Migrationsdateien, ist der
+     * Vermerk hinfaellig und der naechste Aufruf laeuft sofort wieder.
+     *
+     * Gilt nur fuer den automatischen Lauf aus dem Request heraus. Wer
+     * bin/migrate.php von Hand aufruft, will migrieren und wartet nicht.
+     */
+    public function kuerzlichGescheitert(): bool
+    {
+        $inhalt = self::vermerkLesbar($this->fehlerVermerk())
+            ? (string)@file_get_contents($this->fehlerVermerk())
+            : '';
+
+        $teile = explode("\n", trim($inhalt));
+        if (count($teile) !== 2 || $teile[0] !== $this->fingerprint()) {
+            return false;
+        }
+
+        return (time() - (int)$teile[1]) < self::FEHLER_PAUSE;
     }
 
     /**
@@ -157,6 +231,9 @@ final class Migrator
 
         if ($fehler === []) {
             $this->markComplete();
+            @unlink($this->fehlerVermerk());
+        } else {
+            $this->markFailed();
         }
 
         return ['ausgefuehrt' => $ausgefuehrt, 'uebersprungen' => $uebersprungen, 'fehler' => $fehler];
@@ -197,11 +274,33 @@ final class Migrator
 
     private function markComplete(): void
     {
-        $verzeichnis = dirname($this->stateFile);
+        self::schreibeVermerk($this->stateFile, $this->fingerprint());
+    }
+
+    private function markFailed(): void
+    {
+        self::schreibeVermerk($this->fehlerVermerk(), $this->fingerprint() . "\n" . time());
+    }
+
+    /**
+     * Schreibt einen Vermerk - nie durch einen Symlink hindurch.
+     */
+    private static function schreibeVermerk(string $datei, string $inhalt): void
+    {
+        $verzeichnis = dirname($datei);
         if (!is_dir($verzeichnis)) {
             mkdir($verzeichnis, 0750, true);
         }
 
-        @file_put_contents($this->stateFile, $this->fingerprint());
+        if (is_link($datei)) {
+            error_log('Migrationsvermerk ' . $datei . ' ist ein Symlink - wird nicht beschrieben.');
+
+            return;
+        }
+
+        if (@file_put_contents($datei, $inhalt, LOCK_EX) !== false) {
+            @chmod($datei, 0600);
+        }
     }
+
 }

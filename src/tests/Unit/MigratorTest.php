@@ -20,6 +20,7 @@ final class MigratorTest extends TestCase
     protected function tearDown(): void
     {
         @unlink($this->stateFile);
+        @unlink($this->stateFile . '.fehler');
     }
 
     /**
@@ -37,6 +38,97 @@ final class MigratorTest extends TestCase
 
         file_put_contents($this->stateFile, 'veralteter-stand');
         self::assertFalse($migrator->isUpToDate(), 'bei abweichendem Vermerk erneut laufen');
+    }
+
+    /**
+     * Ohne Fehlervermerk lief der komplette Durchlauf nach einer
+     * gescheiterten Migration bei JEDEM Request erneut - gegen dieselbe
+     * kaputte Anweisung.
+     */
+    public function testGescheiterterLaufPausiert(): void
+    {
+        $migrator = new Migrator(null, $this->stateFile);
+
+        self::assertFalse($migrator->kuerzlichGescheitert(), 'ohne Vermerk keine Pause');
+
+        file_put_contents($this->stateFile . '.fehler', $migrator->fingerprint() . "\n" . time());
+        self::assertTrue($migrator->kuerzlichGescheitert(), 'frischer Vermerk pausiert');
+    }
+
+    public function testPauseLaeuftAb(): void
+    {
+        $migrator = new Migrator(null, $this->stateFile);
+
+        file_put_contents($this->stateFile . '.fehler', $migrator->fingerprint() . "\n" . (time() - 3600));
+
+        self::assertFalse($migrator->kuerzlichGescheitert(), 'nach Ablauf wieder versuchen');
+    }
+
+    /**
+     * Aendert sich der Satz an Migrationsdateien, ist der alte Fehlervermerk
+     * hinfaellig: die neue Datei soll sofort laufen duerfen.
+     */
+    public function testVermerkGiltNurFuerDenselbenSatz(): void
+    {
+        $migrator = new Migrator(null, $this->stateFile);
+
+        file_put_contents($this->stateFile . '.fehler', 'anderer-stand' . "\n" . time());
+
+        self::assertFalse($migrator->kuerzlichGescheitert());
+    }
+
+    public function testUnbrauchbarerVermerkPausiertNicht(): void
+    {
+        $migrator = new Migrator(null, $this->stateFile);
+
+        foreach (['', 'nur-eine-zeile', "zu\nviele\nzeilen\nhier"] as $inhalt) {
+            file_put_contents($this->stateFile . '.fehler', $inhalt);
+            self::assertFalse(
+                $migrator->kuerzlichGescheitert(),
+                'unbrauchbarer Vermerk darf den Lauf nicht dauerhaft blockieren: ' . var_export($inhalt, true)
+            );
+        }
+    }
+
+    /**
+     * Ein untergeschobener Vermerk mit dem richtigen Fingerabdruck wuerde
+     * die Anwendung fuer migriert halten lassen. Deshalb zaehlt nur eine
+     * gewoehnliche Datei, die uns selbst gehoert.
+     */
+    public function testSymlinkGiltNichtAlsVermerk(): void
+    {
+        $migrator = new Migrator(null, $this->stateFile);
+
+        $echt = $this->stateFile . '.ziel';
+        file_put_contents($echt, $migrator->fingerprint());
+        symlink($echt, $this->stateFile);
+
+        try {
+            self::assertFalse($migrator->isUpToDate(), 'ein Symlink zaehlt nicht');
+        } finally {
+            @unlink($this->stateFile);
+            @unlink($echt);
+        }
+    }
+
+    public function testSymlinkWirdNichtBeschrieben(): void
+    {
+        $migrator = new Migrator(null, $this->stateFile);
+
+        $ziel = $this->stateFile . '.ziel';
+        file_put_contents($ziel, 'unberuehrt');
+        symlink($ziel, $this->stateFile);
+
+        $schreiben = new \ReflectionMethod(Migrator::class, 'schreibeVermerk');
+        $schreiben->setAccessible(true);
+
+        try {
+            $schreiben->invoke(null, $this->stateFile, 'neuer Inhalt');
+            self::assertSame('unberuehrt', file_get_contents($ziel), 'das Ziel bleibt unangetastet');
+        } finally {
+            @unlink($this->stateFile);
+            @unlink($ziel);
+        }
     }
 
     public function testFingerprintIstStabil(): void
