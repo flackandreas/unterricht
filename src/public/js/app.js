@@ -13,11 +13,37 @@ document.addEventListener('DOMContentLoaded', () => {
     // Dark Mode Toggle Logic
     const darkModeBtn = document.getElementById('dark-mode-toggle');
     if (darkModeBtn) {
-        darkModeBtn.addEventListener('click', () => {
+        darkModeBtn.addEventListener('click', (e) => {
+            // Der Umschalter ist ein <a href="#">; ohne das hier springt die
+            // Seite beim Klick an den Anfang zurueck. Stand vorher als
+            // onclick="event.preventDefault();" im Markup.
+            e.preventDefault();
             const isDark = document.body.classList.toggle('dark-mode');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
         });
     }
+
+    // Auswahlfelder, die ihr Formular selbst abschicken
+    //
+    // Stand in den Vorlagen als onchange="this.form.submit()". Ein Attribut
+    // kann keinen CSP-Nonce tragen und waere mit der jetzigen Richtlinie tot;
+    // das Feld sagt mit data-auto-submit nur noch, dass es sich so verhalten
+    // soll.
+    document.querySelectorAll('[data-auto-submit]').forEach(feld => {
+        feld.addEventListener('change', () => {
+            if (feld.form) {
+                feld.form.submit();
+            }
+        });
+    });
+
+    // Felder, die beim Anklicken ihren Inhalt markieren
+    //
+    // Darin stehen Links zum Weitergeben - einmal klicken, einmal kopieren.
+    // Vorher onclick="this.select()".
+    document.querySelectorAll('[data-select-on-click]').forEach(feld => {
+        feld.addEventListener('click', () => feld.select());
+    });
 
     // Mobile Sidebar Toggle
     const navToggle = document.getElementById('nav-toggle');

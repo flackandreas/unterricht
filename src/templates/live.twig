@@ -146,7 +146,7 @@
                 <input type="hidden" name="class_id" value="{{ class_id }}">
                 <input type="hidden" name="fach" value="{{ fach }}">
                 <label for="period" style="font-size: var(--text-sm); color: var(--text-muted);">Stunde</label>
-                <select name="period" id="period" onchange="this.form.submit()">
+                <select name="period" id="period" data-auto-submit>
                     {% for p in 1..10 %}
                         <option value="{{ p }}" {{ p == period ? 'selected' : '' }}>{{ p }}.</option>
                     {% endfor %}
@@ -236,7 +236,7 @@
 
 {% block extra_scripts %}
 {% if klasse and fach is not empty and liste|length > 0 %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     window.LIVE_CONFIG = {
         csrfToken: {{ csrf_token|json_encode|raw }},
         classId: {{ class_id }},

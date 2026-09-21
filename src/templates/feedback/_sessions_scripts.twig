@@ -3,7 +3,7 @@
     Die Handler hängen an Klassen statt an onclick-/onchange-Attributen im
     Markup – damit kommt die Seite ohne inline-Eventhandler aus.
 #}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
     'use strict';
 

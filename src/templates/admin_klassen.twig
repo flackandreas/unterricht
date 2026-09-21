@@ -4,7 +4,7 @@
 <div class="content-box">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h2 style="margin: 0;">Klassenverwaltung</h2>
-        <button class="btn btn-primary" onclick="openModal()" style="background-color: var(--primary-color); color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: 600;">+ Neu anlegen</button>
+        <button class="btn btn-primary" data-modal-open style="background-color: var(--primary-color); color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: 600;">+ Neu anlegen</button>
     </div>
 
     {% if classes|length == 0 %}
@@ -57,7 +57,7 @@
             </div>
             
             <div style="text-align: right;">
-                <button type="button" onclick="closeModal()" style="background: transparent; color: #333; border: 1px solid #ccc; padding: 10px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px;">Abbrechen</button>
+                <button type="button" data-modal-close style="background: transparent; color: #333; border: 1px solid #ccc; padding: 10px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px;">Abbrechen</button>
                 <button type="submit" class="btn btn-primary" style="background-color: var(--primary-color); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: 600;">Speichern</button>
             </div>
         </form>
@@ -65,7 +65,7 @@
 </div>
 
 <script src="{{ asset('/vendor/sweetalert2/sweetalert2.all.min.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     const modal = document.getElementById('klassenModal');
     
     function openModal() {
@@ -84,6 +84,19 @@
     // Close on background click
     modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
+    });
+
+    // Oeffnen und Schliessen haengen jetzt an data-Attributen
+    //
+    // Vorher rief ein onclick-Attribut am Knopf openModal() bzw. closeModal()
+    // auf. Ein Attribut kann keinen CSP-Nonce tragen und wird von der jetzigen
+    // Richtlinie nicht mehr ausgefuehrt.
+    document.querySelectorAll('[data-modal-open]').forEach(knopf => {
+        knopf.addEventListener('click', openModal);
+    });
+
+    document.querySelectorAll('[data-modal-close]').forEach(knopf => {
+        knopf.addEventListener('click', closeModal);
     });
 
     // Handle Edit Buttons

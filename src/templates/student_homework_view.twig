@@ -129,7 +129,7 @@
 
 {% include 'partials/_math_format.twig' %}
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     var SUB_TOKEN = {{ sub.token|json_encode|raw }};
     var CSRF_TOKEN = {{ csrf_token|json_encode|raw }};
     var STATE = {{ state|json_encode|raw }};

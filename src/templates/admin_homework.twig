@@ -239,7 +239,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Löschen einer Hausaufgabe - mit Rückfrage, da alle Abgaben mitgehen.
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.btn-delete-assignment').forEach(function (btn) {

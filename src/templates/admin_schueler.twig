@@ -11,7 +11,7 @@
         {% if klassen|length > 0 %}
             <form method="GET" style="margin: 0;">
                 <label for="class_id" style="font-size: var(--text-sm); color: var(--text-muted); margin-right: var(--space-2);">Klasse</label>
-                <select name="class_id" id="class_id" onchange="this.form.submit()"
+                <select name="class_id" id="class_id" data-auto-submit
                         style="padding: 8px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-content); color: var(--text-dark);">
                     {% for k in klassen %}
                         <option value="{{ k.id }}" {{ k.id == class_id ? 'selected' : '' }}>{{ k.name }}</option>

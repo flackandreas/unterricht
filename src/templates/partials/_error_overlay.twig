@@ -45,7 +45,7 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Box und Listeneintrag hervorheben - ohne inline-Handler im Markup.
     (function () {
         function setze(index, an) {

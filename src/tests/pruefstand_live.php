@@ -52,6 +52,7 @@ $twig->addFunction(new \Twig\TwigFunction('asset', static function (string $pfad
 $twig->addFunction(new \Twig\TwigFunction('is_current_page', static fn(string $p): bool => $p === 'live.php'));
 $twig->addFunction(new \Twig\TwigFunction('qr_data_uri', static fn(string $t, int $s = 200): string => ''));
 $twig->addFunction(new \Twig\TwigFunction('pending_reviews', static fn(): int => 0));
+$twig->addFunction(new \Twig\TwigFunction('csp_nonce', static fn(): string => 'attrappe'));
 $twig->addFilter(new \Twig\TwigFilter('json_decode', static fn(string $s): array => []));
 
 $html = $twig->render('live.twig', [

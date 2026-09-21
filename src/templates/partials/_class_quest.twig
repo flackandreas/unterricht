@@ -54,7 +54,7 @@
     </div>
 
     {% if percent >= 100 %}
-        <script>
+        <script nonce="{{ csp_nonce() }}">
             document.addEventListener('DOMContentLoaded', function () {
                 setTimeout(function () {
                     if (typeof confetti === 'function') {

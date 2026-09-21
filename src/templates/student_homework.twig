@@ -78,7 +78,7 @@
 </div>
 
 {% include 'partials/_math_format.twig' %}
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.getElementById('uploadForm').addEventListener('submit', function () {
         document.getElementById('submitBtn').style.display = 'none';
         document.getElementById('loadingSection').style.display = 'block';

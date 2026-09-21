@@ -235,7 +235,7 @@
                         <p style="margin: var(--space-2) 0; font-size: var(--text-sm); color: var(--text-muted);">
                             Ausdrucken und aushängen, oder die Adresse weitergeben.
                         </p>
-                        <input type="text" readonly value="{{ adresse }}" onclick="this.select()"
+                        <input type="text" readonly value="{{ adresse }}" data-select-on-click
                                style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: var(--text-xs); box-sizing: border-box; background: var(--bg-main); color: var(--text-dark);">
                         <p style="margin: var(--space-3) 0 0 0;">
                             <a href="/vertretung_view.php?token={{ plan.access_token }}&pdf=1"

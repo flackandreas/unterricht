@@ -44,7 +44,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Avatar lokal erzeugen - der Seed verlässt das Gerät nicht.
     (function () {
         var seed = {{ (progress.avatar_seed|default('anon'))|json_encode|raw }};

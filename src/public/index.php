@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../includes/request.php';
+require_once __DIR__ . '/../includes/csp.php';
 
 // 1. Security Headers
 header("X-Frame-Options: DENY");
@@ -23,12 +24,20 @@ if (request_is_https()) {
 // api.dicebear.com sind deshalb entfernt. 'unsafe-eval' wird nirgends
 // gebraucht und faellt ebenfalls weg.
 //
-// 'unsafe-inline' bleibt vorerst noetig, weil die Templates durchgaengig mit
-// inline-Attributen (style="...", onclick="...") arbeiten.
+// 'unsafe-inline' ist fuer Skripte gefallen. Stattdessen nennt der Header
+// einen Nonce, den jeder eigene Skriptblock traegt (siehe includes/csp.php);
+// die Vorlagen kommen ohne onclick= und Verwandte aus, denn ein Attribut kann
+// keinen Nonce tragen und waere mit dieser Richtlinie tot.
+//
+// Fuer Stile bleibt 'unsafe-inline' stehen: style="..." ist ein Attribut,
+// auch hier hilft kein Nonce, und die Vorlagen enthalten rund 950 davon. Das
+// ist ein eigener Umbau, kein Nebenschauplatz dieses hier - und der Schaden,
+// den ein eingeschleuster Stil anrichten kann, ist ein anderer als der eines
+// eingeschleusten Skripts.
 header(
     "Content-Security-Policy: "
     . "default-src 'self'; "
-    . "script-src 'self' 'unsafe-inline'; "
+    . "script-src 'self' 'nonce-" . csp_nonce() . "'; "
     . "style-src 'self' 'unsafe-inline'; "
     . "img-src 'self' data: blob:; "
     . "font-src 'self'; "

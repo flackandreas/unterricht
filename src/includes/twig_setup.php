@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/csp.php';
 require_once __DIR__ . '/sso.php';
 
 // Prepare Twig Environment
@@ -43,6 +44,17 @@ $twig->addFunction(new \Twig\TwigFunction('asset', function (string $pfad): stri
     $stand = is_readable($datei) ? filemtime($datei) : time();
     return $pfad . '?v=' . $stand;
 }));
+
+/**
+ * Nonce der laufenden Anfrage, fuer die eigenen Skriptbloecke.
+ *
+ * Der Front Controller schreibt denselben Wert in die
+ * Content-Security-Policy. Ein Skriptblock ohne nonce-Attribut wird vom
+ * Browser nicht ausgefuehrt - stillschweigend, mit einem Hinweis nur in der
+ * Entwicklerkonsole. tests/Unit/TemplateCspTest.php prueft deshalb, dass
+ * keiner vergessen wird.
+ */
+$twig->addFunction(new \Twig\TwigFunction('csp_nonce', 'csp_nonce'));
 
 $twig->addFunction(new \Twig\TwigFunction('is_current_page', function (string $page): bool {
     // Der Router hinterlegt den tatsaechlich geladenen Controller. Ohne ihn

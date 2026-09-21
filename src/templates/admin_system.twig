@@ -145,7 +145,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.getElementById('loeschknopf').addEventListener('click', function () {
     Swal.fire({
         title: 'Löschlauf starten?',
