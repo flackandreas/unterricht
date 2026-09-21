@@ -41,5 +41,17 @@ services:
 
 networks:
   app-network:
-    name: feedback_rstn_app-network
+    # Dasselbe Netz, an dem Portal, Antragssystem und die Datenbank haengen.
+    #
+    # Compose benennt Netze nach dem Projektverzeichnis - auf dem Pi hiess das
+    # des Antragssystems "feedback_rstn", daher der Name. Auf einem anderen
+    # Rechner kann er anders lauten, und dann startet dieser Stapel nicht:
+    # "network feedback_rstn_app-network declared as external, but could not
+    # be found". Was "docker network ls" dort ausgibt, traegt MODULNETZ nach -
+    # dieselbe Variable, die pi/compose.pi.yml im Portal-Repo schon verwendet,
+    # und sie kommt aus derselben pi/.env.
+    #
+    # Ohne MODULNETZ bleibt es beim bisherigen Namen; am Pi aendert sich also
+    # nichts.
+    name: ${MODULNETZ:-feedback_rstn_app-network}
     external: true
