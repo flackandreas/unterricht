@@ -37,6 +37,12 @@ do
     mkdir -p "$verzeichnis" 2>/dev/null || true
 done
 
+# Oeffentliche Demo: Beispielfotos der Hausaufgaben in die Ablage legen,
+# bevor die Rechte unten gesetzt werden.
+if [ "${SCHULOS_DEMO:-0}" = "1" ]; then
+    php /var/www/html/bin/demo_bilder.php || echo "WARNUNG: Demo-Bilder fehlen." >&2
+fi
+
 # setgid, damit neu angelegte Dateien die Gruppe erben.
 if chgrp -R www-data "$ABLAGE" 2>/dev/null \
     && chmod -R g+rwX "$ABLAGE" 2>/dev/null \

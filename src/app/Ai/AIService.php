@@ -856,12 +856,25 @@ class AIService
      */
     private function mockEvaluation(string $taskDescription, string $studentPseudonym, array $criteria): array
     {
+        // In der oeffentlichen Demo (SCHULOS_DEMO=1) gibt es bewusst keinen
+        // Schluessel: Besucher sollen keine Kosten erzeugen und keine Bilder
+        // an einen KI-Dienst schicken. Die Texte sagen dann ehrlich, dass es
+        // ein Beispiel ist - statt von einem "Test-Modus" zu sprechen.
+        $demo = getenv('SCHULOS_DEMO') === '1';
+        $hinweis = $demo
+            ? 'Demo: Beispielbewertung, ohne KI erstellt.'
+            : 'Test-Modus: keine echte Bildanalyse.';
+
         $mock = [
-            'image_analysis'   => 'Test-Modus: keine echte Bildanalyse.',
-            'student_feedback' => "Hallo!\n\nDas ist ein simuliertes Feedback (kein GEMINI_API_KEY konfiguriert).\n\n"
+            'image_analysis'   => $hinweis,
+            'student_feedback' => ($demo
+                    ? "Hallo!\n\nDas ist ein Beispiel-Feedback aus der SchulOS-Demo. Im Schulbetrieb schreibt es die KI, die Lehrkraft prüft und gibt frei.\n\n"
+                    : "Hallo!\n\nDas ist ein simuliertes Feedback (kein GEMINI_API_KEY konfiguriert).\n\n")
                 . "Deine Abgabe zur Aufgabe '" . $taskDescription . "' sieht ordentlich aus. Achte besonders auf die "
                 . "Vorzeichenregeln und dokumentiere alle Zwischenschritte nachvollziehbar.",
-            'teacher_notes'    => "- Test-Modus aktiv (kein GEMINI_API_KEY konfiguriert)\n"
+            'teacher_notes'    => ($demo
+                    ? "- Demo: Beispielbewertung ohne KI\n"
+                    : "- Test-Modus aktiv (kein GEMINI_API_KEY konfiguriert)\n")
                 . "- Struktur der Einreichung in Ordnung\n- Geringfügige Mängel bei der Dokumentation der Rechenschritte.",
             'score'            => 88,
             'errors'           => [
@@ -875,7 +888,7 @@ class AIService
             $mock['criteria'][] = [
                 'id'      => (int)$k['id'],
                 'points'  => round((int)$k['max_points'] * 0.85, 1),
-                'comment' => 'Test-Modus: simulierte Bewertung.',
+                'comment' => $demo ? 'Demo: Beispielbewertung.' : 'Test-Modus: simulierte Bewertung.',
             ];
         }
 

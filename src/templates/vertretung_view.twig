@@ -44,7 +44,10 @@
         }
     </style>
 </head>
-<body>
+<body{% if demo %} class="ist-demo"{% endif %}>
+{% if demo %}
+<div class="demo-band" role="note">Demo mit erfundenen Daten – bitte nichts Echtes eintragen. Wird jede Nacht zurückgesetzt.</div>
+{% endif %}
 <div class="mappe">
     {% if plan is null %}
         <div class="karte">
