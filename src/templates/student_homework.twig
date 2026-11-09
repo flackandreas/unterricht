@@ -4,7 +4,10 @@
     {% include 'partials/_student_head.twig' %}
     <title>{{ assignment.title }} - Hausaufgabe einreichen</title>
 </head>
-<body>
+<body{% if demo %} class="ist-demo"{% endif %}>
+{% if demo %}
+<div class="demo-band" role="note">Demo mit erfundenen Daten – bitte nichts Echtes eintragen. Wird jede Nacht zurückgesetzt.</div>
+{% endif %}
 
 <div class="container">
     <h1>{{ assignment.title }}</h1>

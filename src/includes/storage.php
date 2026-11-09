@@ -10,6 +10,8 @@
  * src/storage/uploads/ und werden ausschliesslich ueber media.php ausgeliefert.
  */
 
+require_once __DIR__ . '/demo.php';
+
 const STORAGE_SUBDIRS = ['homework', 'context', 'tmp'];
 
 /**
@@ -63,6 +65,13 @@ function storage_random_filename(string $extension): string {
  * ("uploads/homework/<name>") oder null, wenn das Verschieben scheitert.
  */
 function storage_store_upload(string $tmpName, string $subdir, string $extension): ?string {
+    // Oeffentliche Demo: keine grossen Dateien auf dem Heimserver.
+    if (demo_aktiv() && (int) @filesize($tmpName) > DEMO_UPLOAD_GRENZE) {
+        error_log('Ablage: Upload in der Demo ueber 5 MB abgewiesen.');
+
+        return null;
+    }
+
     $dir = storage_dir($subdir);
     $filename = storage_random_filename($extension);
 

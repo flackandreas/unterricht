@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/sso.php';
+require_once __DIR__ . '/demo.php';
 
 // Prepare Twig Environment
 $loader = new \Twig\Loader\FilesystemLoader(__DIR__ . '/../templates');
@@ -30,6 +31,9 @@ $twig = new \Twig\Environment($loader, [
 // Adresse des SchulOS-Portals, oder leer im Alleinbetrieb. Als globale
 // Variable, damit nicht jeder Controller sie einzeln durchreichen muss.
 $twig->addGlobal('portal_adresse', sso_aktiv() ? sso_portal_adresse() : '');
+
+// Oeffentliche Demo: Hinweisband im Grundlayout und auf den Schuelerseiten.
+$twig->addGlobal('demo', demo_aktiv());
 
 // Helper extension: Expose a function to fetch active navigation states
 /**
